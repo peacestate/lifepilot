@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "registryVersion": "2026-06-26",
+  "runtime": { "executorchVersion": "0.6.0", "reactNativeExecutorch": "0.4.8" },
+  "models": {
+    "overwhelm": [
+      {
+        "id": "overwhelm-llama-3.2-1b-qlora",
+        "feature": "overwhelm",
+        "version": "1.0.0",
+        "channel": "stable",
+        "executorchVersion": "0.6.0",
+        "files": { "model": "llama3_2-1B-qlora.pte", "tokenizer": "tokenizer.json", "tokenizerConfig": "tokenizer_config.json" },
+        "source": { "type": "bundled" },
+        "releasedAt": "2026-06-26",
+        "notes": "v1 task breakdown (HF QLoRA INT4)."
+      }
+    ],
+    "energy": [
+      {
+        "id": "energy-tcn",
+        "feature": "energy",
+        "version": "1.0.0",
+        "channel": "stable",
+        "executorchVersion": "0.6.0",
+        "files": { "model": "energy_predictor.pte" },
+        "source": { "type": "bundled" },
+        "releasedAt": "2026-06-26",
+        "notes": "v1 daily energy curve (synthetic-trained TCN)."
+      }
+    ],
+    "hydration": [
+      {
+        "id": "hydration-mlp",
+        "feature": "hydration",
+        "version": "1.0.0",
+        "channel": "stable",
+        "executorchVersion": "0.6.0",
+        "files": { "model": "hydration_predictor.pte" },
+        "source": { "type": "bundled" },
+        "releasedAt": "2026-06-26",
+        "notes": "v1 hydration components (physiology-distilled MLP)."
+      }
+    ],
+    "expense_line": [
+      {
+        "id": "expense-line-tagger",
+        "feature": "expense_line",
+        "version": "1.0.0",
+        "channel": "stable",
+        "executorchVersion": "0.6.0",
+        "files": { "model": "expense_line_tagger.pte" },
+        "source": { "type": "bundled" },
+        "releasedAt": "2026-06-26",
+        "notes": "v1 receipt line tagger."
+      }
+    ],
+    "expense_category": [
+      {
+        "id": "expense-category",
+        "feature": "expense_category",
+        "version": "1.0.0",
+        "channel": "stable",
+        "executorchVersion": "0.6.0",
+        "files": { "model": "expense_category.pte" },
+        "source": { "type": "bundled" },
+        "releasedAt": "2026-06-26",
+        "notes": "v1 receipt category classifier."
+      }
+    ]
+  }
+}

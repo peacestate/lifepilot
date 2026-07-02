@@ -1,0 +1,68 @@
+{
+  "name": "hydration_predictor",
+  "task": "regression (daily water-need components)",
+  "executorch_version": "v0.6.0",
+  "backend": "xnnpack",
+  "quant": "fp32",
+  "exported_utc": "2026-07-01T23:17:04Z",
+  "input": {
+    "shape": [
+      1,
+      8
+    ],
+    "dtype": "float32",
+    "features": [
+      "body_mass_kg",
+      "is_female",
+      "age_years",
+      "temperature_c",
+      "humidity_pct",
+      "aqi",
+      "active_minutes",
+      "workout_intensity"
+    ]
+  },
+  "output": {
+    "shape": [
+      1,
+      4
+    ],
+    "dtype": "float32",
+    "components": [
+      "baseline_ml",
+      "heat_ml",
+      "activity_ml",
+      "aqi_ml"
+    ],
+    "note": "device sums components -> target, then clamps to [clamp_min, clamp_max]"
+  },
+  "scaler": {
+    "mean": [
+      72.0,
+      0.5,
+      38.0,
+      20.0,
+      55.0,
+      50.0,
+      30.0,
+      0.45
+    ],
+    "std": [
+      15.0,
+      0.5,
+      15.0,
+      9.0,
+      20.0,
+      45.0,
+      30.0,
+      0.3
+    ]
+  },
+  "clamp_min_ml": 1500.0,
+  "clamp_max_ml": 4000.0,
+  "synthetic_training": true,
+  "trained_from": "deterministic physiology engine (contract \u00c2\u00a71) + label noise",
+  "pte_filename": "hydration_predictor.pte",
+  "bytes": 11152,
+  "sha256": "43ddf8e34aa75b09ac488b91db0ca074548417c797692253c3fcbc1d950ad4bb"
+}

@@ -1,0 +1,23 @@
+{
+  "_comment": "Describes the bundled Overwhelm model files. The loader reads this; never hard-code sizes/paths elsewhere. AIML (lifepilot-aiml-engineer) fills sha256 + bytes on delivery (model-contract §2a). DO NOT bump executorch_version without re-pinning react-native-executorch (model-contract §6). CTO PIN: react_native_executorch 0.4.8 — its runtime matches the HF .pte exported with ExecuTorch 0.6.0. AIML must pull the QLoRA INT4 artifacts from the HF repo at revision hf_revision below (NOT main, which may be re-exported for a newer runtime). Confirm the real .pte filename at that revision and record it in files.model.",
+  "name": "overwhelm-llama-3.2-1b-qlora-int4",
+  "version": "1.0.0",
+  "source": "software-mansion/react-native-executorch-llama-3.2 (QLoRA INT4)",
+  "hf_revision": "v0.4.0",
+  "react_native_executorch": "0.4.10",
+  "executorch_version": "0.6.0",
+  "quant": "QLoRA INT4 (8da4w groupwise weights, dynamic 8-bit activations, EO8)",
+  "backend": "XNNPACK",
+  "stopTokenId": 128009,
+  "files": {
+    "model": "llama3_2_qat_lora.pte",
+    "tokenizer": "tokenizer.json",
+    "tokenizerConfig": "tokenizer_config.json"
+  },
+  "sha256": {
+    "model": "aa9ad92958ddb1c9807a03183ede4fb6e89d55c054d0e94c5574ac4bac1dd8ea"
+  },
+  "bytes": {
+    "model": 1181451008
+  }
+}

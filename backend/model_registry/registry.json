@@ -1,0 +1,54 @@
+{
+  "_comment": "The PUBLISHED model catalog the app fetches on an opt-in update check. To RELEASE a new model: export on Kaggle -> drop files in models/<id>/<version>/ -> add a descriptor here with a bumped semver + sha256 + bytes + executorchVersion -> the next app check offers it. Keep `runtime.executorchVersion` equal to what the shipped app pins; a descriptor whose executorchVersion differs is rejected client-side (no forward compat). This file contains NO user data.",
+  "schema": 1,
+  "registryVersion": "2026-06-26",
+  "runtime": { "executorchVersion": "0.6.0", "reactNativeExecutorch": "0.4.8" },
+  "models": {
+    "overwhelm": [
+      {
+        "id": "overwhelm-llama-3.2-1b-qlora", "feature": "overwhelm", "version": "1.0.0",
+        "channel": "stable", "executorchVersion": "0.6.0",
+        "files": { "model": "llama3_2-1B-qlora.pte", "tokenizer": "tokenizer.json", "tokenizerConfig": "tokenizer_config.json" },
+        "sha256": { "model": "TODO" }, "bytes": { "model": 0 },
+        "source": { "type": "remote", "baseUrl": "/models/overwhelm-llama-3.2-1b-qlora/1.0.0/" },
+        "releasedAt": "2026-06-26", "notes": "v1 task breakdown."
+      }
+    ],
+    "energy": [
+      {
+        "id": "energy-tcn", "feature": "energy", "version": "1.0.0", "channel": "stable",
+        "executorchVersion": "0.6.0", "files": { "model": "energy_predictor.pte" },
+        "sha256": { "model": "TODO" }, "bytes": { "model": 0 },
+        "source": { "type": "remote", "baseUrl": "/models/energy-tcn/1.0.0/" },
+        "releasedAt": "2026-06-26", "notes": "v1 energy curve."
+      }
+    ],
+    "hydration": [
+      {
+        "id": "hydration-mlp", "feature": "hydration", "version": "1.0.0", "channel": "stable",
+        "executorchVersion": "0.6.0", "files": { "model": "hydration_predictor.pte" },
+        "sha256": { "model": "TODO" }, "bytes": { "model": 0 },
+        "source": { "type": "remote", "baseUrl": "/models/hydration-mlp/1.0.0/" },
+        "releasedAt": "2026-06-26", "notes": "v1 hydration components."
+      }
+    ],
+    "expense_line": [
+      {
+        "id": "expense-line-tagger", "feature": "expense_line", "version": "1.0.0", "channel": "stable",
+        "executorchVersion": "0.6.0", "files": { "model": "expense_line_tagger.pte" },
+        "sha256": { "model": "TODO" }, "bytes": { "model": 0 },
+        "source": { "type": "remote", "baseUrl": "/models/expense-line-tagger/1.0.0/" },
+        "releasedAt": "2026-06-26", "notes": "v1 line tagger."
+      }
+    ],
+    "expense_category": [
+      {
+        "id": "expense-category", "feature": "expense_category", "version": "1.0.0", "channel": "stable",
+        "executorchVersion": "0.6.0", "files": { "model": "expense_category.pte" },
+        "sha256": { "model": "TODO" }, "bytes": { "model": 0 },
+        "source": { "type": "remote", "baseUrl": "/models/expense-category/1.0.0/" },
+        "releasedAt": "2026-06-26", "notes": "v1 category classifier."
+      }
+    ]
+  }
+}

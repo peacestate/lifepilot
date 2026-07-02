@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "LifePilot",
+    "slug": "lifepilot",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "lifepilot",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F7F8F6"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lifepilot.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "LifePilot uses your camera to scan receipts on-device. Nothing is uploaded.",
+        "NSPhotoLibraryUsageDescription": "LifePilot reads photos to scan receipts. Everything runs on-device — nothing is uploaded.",
+        "NSPhotoLibraryAddUsageDescription": "LifePilot may save captured receipts to your photo library."
+      }
+    },
+    "android": {
+      "package": "com.lifepilot.app",
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "plugins": [
+      "expo-dev-client",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "LifePilot uses your camera to scan receipts on-device. Nothing is uploaded.",
+          "enableCodeScanner": false
+        }
+      ]
+    ],
+    "_comment_privacy": "No network/analytics plugins. Inference is fully on-device (see docs/overwhelm-model-contract.md). react-native-executorch is autolinked native code; this app CANNOT run in Expo Go — it needs a dev client / prebuild.",
+    "extra": {
+      "eas": {
+        "projectId": "a15003ba-8777-4594-87ef-7498350835f5"
+      }
+    },
+    "owner": "kianukal"
+  }
+}

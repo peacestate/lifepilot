@@ -1,0 +1,29 @@
+# Mobile app (RN/Expo)
+mobile/node_modules/
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/android/
+mobile/ios/
+
+# On-device models — large binaries, provisioned per RUNBOOK.md, never committed
+**/*.pte
+**/tokenizer.json
+**/tokenizer_config.json
+**/*.bin
+ml/export/__pycache__/
+ml/test/__pycache__/
+**/__pycache__/
+*.pyc
+
+# Local build/export scratch — huge APKs, downloaded .pte bundles, zips
+/models/
+
+# Credentials — never commit
+.kaggle/
+kaggle.json
+.env*
+
+# Misc
+*.log
+.DS_Store

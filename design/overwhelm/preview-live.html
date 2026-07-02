@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LifePilot — Overwhelm Manager (LIVE preview)</title>
+<style>
+  :root{
+    --background:#F7F8F6; --surface:#FFFFFF; --surfaceAlt:#EEF1ED; --border:#E1E5DF;
+    --textPrimary:#2C322E; --textSecondary:#5C645E; --textTertiary:#9AA29B;
+    --accent:#6B9080; --accentPressed:#5A7C6E; --accentMuted:#C7D6CF;
+    --onAccent:#FFFFFF; --error:#A86B6B;
+    --r-sm:8px; --r-md:12px; --r-lg:16px; --r-pill:999px;
+  }
+  *{box-sizing:border-box;-webkit-font-smoothing:antialiased;}
+  body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:14px;
+    padding:24px 12px 40px;background:#dfe4df;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--textPrimary);}
+  .lead{color:#46514a;font-size:13px;text-align:center;max-width:420px;line-height:1.5;}
+  .lead b{color:#2C322E;}
+
+  /* API key bar */
+  .keybar{display:flex;gap:8px;align-items:center;background:#fff;border:1px solid #c4ccc5;border-radius:var(--r-pill);
+    padding:6px 6px 6px 14px;max-width:420px;width:100%;}
+  .keybar input{flex:1;border:none;outline:none;font-size:13px;font-family:inherit;color:#2C322E;background:transparent;}
+  .keybar button{border:none;background:var(--accent);color:#fff;font-size:12px;font-weight:600;padding:7px 14px;
+    border-radius:var(--r-pill);cursor:pointer;font-family:inherit;}
+  .keynote{font-size:11px;color:#5a655d;max-width:420px;text-align:center;line-height:1.4;}
+
+  .phone{width:380px;max-width:96vw;height:720px;background:var(--background);border-radius:40px;border:10px solid #2b302c;
+    position:relative;overflow:hidden;box-shadow:0 24px 60px rgba(20,30,24,.32);}
+  .notch{position:absolute;top:0;left:50%;transform:translateX(-50%);width:150px;height:26px;background:#2b302c;border-radius:0 0 16px 16px;z-index:5;}
+  .status{position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;justify-content:space-between;
+    padding:0 24px;font-size:13px;font-weight:600;z-index:4;}
+  .screen{position:absolute;inset:44px 0 0 0;display:flex;flex-direction:column;padding:8px 20px 20px;}
+  .scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  .h1{font-size:26px;line-height:34px;font-weight:600;margin:6px 0 0;}
+  .h2{font-size:20px;line-height:28px;font-weight:600;}
+  .subtext{font-size:15px;line-height:22px;color:var(--textSecondary);margin-top:10px;}
+
+  .input{width:100%;margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);
+    padding:14px 16px;font-size:17px;line-height:26px;color:var(--textPrimary);min-height:110px;resize:none;outline:none;
+    font-family:inherit;transition:border-color .15s,box-shadow .15s;}
+  .input::placeholder{color:var(--textTertiary);}
+  .input:focus{border-color:var(--accent);box-shadow:0 2px 8px rgba(44,50,46,.06);}
+
+  .cta{width:100%;margin-top:16px;border:none;border-radius:var(--r-md);padding:16px;background:var(--accent);color:#fff;
+    font-size:17px;font-weight:600;font-family:inherit;cursor:pointer;transition:background .15s,transform .05s;}
+  .cta:active{background:var(--accentPressed);transform:scale(.99);}
+  .cta:disabled{background:var(--accentMuted);cursor:default;}
+  .secondary{background:transparent;border:1px solid var(--border);border-radius:var(--r-md);padding:14px;color:var(--textSecondary);
+    font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;}
+  .secondary:active{background:var(--surfaceAlt);}
+
+  .footnote{display:flex;align-items:center;gap:7px;margin-top:18px;color:var(--textTertiary);font-size:13px;}
+
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:0 12px;}
+  .pulse{width:84px;height:84px;border-radius:var(--r-pill);background:var(--accent);opacity:.18;margin-bottom:18px;animation:breathe 2.6s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{transform:scale(.78);opacity:.14;}50%{transform:scale(1.05);opacity:.32;}}
+  @media (prefers-reduced-motion:reduce){.pulse{animation:none;opacity:.22;}}
+  .offline-pill{margin-top:6px;display:inline-flex;align-items:center;gap:6px;background:var(--surfaceAlt);color:var(--textSecondary);
+    font-size:13px;padding:7px 12px;border-radius:var(--r-pill);}
+
+  .chip{display:inline-flex;flex-direction:column;gap:2px;background:var(--surfaceAlt);border-radius:var(--r-md);padding:12px 14px;margin-top:6px;}
+  .chip .lbl{font-size:13px;color:var(--textSecondary);}
+  .chip .val{font-size:15px;line-height:22px;}
+  .progress-wrap{margin:18px 0 6px;}
+  .progress-track{height:8px;background:var(--surfaceAlt);border-radius:var(--r-pill);overflow:hidden;}
+  .progress-fill{height:100%;width:0;background:var(--accent);border-radius:var(--r-pill);transition:width .35s ease;}
+  .progress-label{margin-top:8px;font-size:13px;color:var(--textSecondary);}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;margin-top:4px;}
+  .step{display:flex;align-items:flex-start;gap:14px;padding:16px 16px;border-top:1px solid var(--border);cursor:pointer;
+    opacity:0;transform:translateY(6px);animation:stepin .35s ease forwards;}
+  .step:first-child{border-top:none;}
+  @keyframes stepin{to{opacity:1;transform:none;}}
+  .checkbox{flex:none;width:26px;height:26px;border-radius:var(--r-pill);border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;margin-top:1px;transition:background .15s;}
+  .checkbox svg{opacity:0;transition:opacity .12s;}
+  .step.done .checkbox{background:var(--accent);}
+  .step.done .checkbox svg{opacity:1;}
+  .num{font-size:13px;font-weight:600;color:var(--textTertiary);margin-top:3px;min-width:14px;}
+  .step-text{font-size:17px;line-height:26px;}
+  .step.done .step-text{color:var(--textTertiary);text-decoration:line-through;}
+
+  .deeper{padding:6px 4px 12px 54px;cursor:pointer;font-size:13px;color:var(--accent);}
+  .deeper:hover{text-decoration:underline;}
+  .deeper.muted{color:var(--textTertiary);cursor:default;}
+  .substep{display:flex;align-items:flex-start;gap:12px;padding:11px 16px 11px 54px;background:var(--surfaceAlt);border-top:1px solid var(--border);cursor:pointer;
+    opacity:0;transform:translateY(4px);animation:stepin .3s ease forwards;}
+  .substep .checkbox{width:22px;height:22px;}
+  .substep .dot{color:var(--accent);font-size:17px;line-height:22px;}
+  .substep .sub-text{font-size:15px;line-height:22px;color:var(--textSecondary);}
+  .substep.done .sub-text{color:var(--textTertiary);text-decoration:line-through;}
+  .substep.done .checkbox{background:var(--accent);}
+  .substep.done .checkbox svg{opacity:1;}
+
+  .complete{margin-top:18px;text-align:center;background:var(--surfaceAlt);border-radius:var(--r-lg);padding:18px;font-size:16px;line-height:24px;display:none;}
+  .complete.show{display:block;}
+  .message{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;padding:0 16px;}
+  .btn-row{display:flex;gap:12px;margin-top:16px;}
+  .btn-row .secondary{flex:1;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+  <div class="lead"><b>Overwhelm Manager — LIVE</b>. This calls a real model with the <i>exact</i> system prompt + parser from the app (model-contract §3/§4). Type anything — it genuinely breaks down <i>your</i> input. Stand-in model: Claude Haiku 4.5 (cloud) for the on-device Llama 3.2 1B.</div>
+
+  <div class="keybar">
+    <input id="key" type="password" placeholder="Paste your Anthropic API key (sk-ant-...)" autocomplete="off" />
+    <button id="saveKey">Save</button>
+  </div>
+  <div class="keynote">⚠️ Demo only: the key stays in this browser tab (localStorage), is sent directly to api.anthropic.com, and is never committed. For a real product the key lives on a server, never the client. The shipped app uses NO key — it runs the model on-device.</div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>LIVE</span></div>
+    <div class="screen">
+      <!-- INPUT -->
+      <div id="state-input" class="scroll">
+        <div class="h1">What's overwhelming you today?</div>
+        <div class="subtext">Type it out. I'll break it into small, doable steps.</div>
+        <textarea id="input" class="input" placeholder='e.g. "How do I make a digital news website?"'></textarea>
+        <button id="cta" class="cta" disabled>Break it down</button>
+        <div class="footnote">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA29B" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          In the real app this runs fully on your device.
+        </div>
+      </div>
+      <!-- LOADING -->
+      <div id="state-loading" class="center hidden">
+        <div class="pulse"></div>
+        <div class="h2">Thinking this through…</div>
+        <div class="offline-pill">✈︎ On-device & offline in the real app.</div>
+      </div>
+      <!-- RESULTS -->
+      <div id="state-results" class="scroll hidden">
+        <div class="chip"><span class="lbl">You asked:</span><span id="askedVal" class="val"></span></div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div id="fill" class="progress-fill"></div></div>
+          <div id="progressLabel" class="progress-label">0 of 0 done</div>
+        </div>
+        <div id="stepList" class="card"></div>
+        <div id="complete" class="complete">Nicely done. You handled it, one step at a time.</div>
+        <div class="btn-row"><button class="secondary" onclick="reset()">Start over</button></div>
+      </div>
+      <!-- MESSAGE (empty/error) -->
+      <div id="state-message" class="message hidden">
+        <div class="h2" id="msgText"></div>
+        <div class="btn-row" style="width:100%;">
+          <button class="secondary" onclick="reset()">Edit</button>
+          <button class="cta" style="margin-top:0;" onclick="runFlow()">Try again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ── contract §3: system prompts (byte-identical to OverwhelmService.ts) ──
+  const SYSTEM =
+    "You are a calm assistant that helps an overwhelmed person take action. Break " +
+    "the user's situation into 5 to 10 small, concrete, single-action steps. Each " +
+    "step must start with a verb and be doable in a few minutes. Output ONLY a " +
+    'markdown bullet list using "- ", one step per line. No intro, no numbering, no extra text.';
+  const SUBSTEP_SYSTEM =
+    "You are a calm assistant. The user gives you ONE step they find tricky. Break " +
+    "just that single step into 3 to 5 even smaller actions, each doable in a " +
+    "minute or two. Each action must start with a verb. Output ONLY a markdown " +
+    'bullet list using "- ", one action per line. No intro, no numbering, no extra text.';
+
+  // ── contract §4: parser (1:1 with overwhelm_eval.py / OverwhelmService.ts) ──
+  const STEP_LINE_RE = /^\s*(?:[-*•]|\d+[.)])\s+(.*\S)\s*$/;
+  const REFUSAL_RE = /\b(i can('|no)t help|i'?m sorry|as an ai|cannot assist)\b/i;
+  function parseSteps(raw, max){
+    const out=[];
+    for(const line of raw.split(/\r\n|\r|\n/)){const m=STEP_LINE_RE.exec(line);if(m)out.push(m[1].trim());}
+    return out.slice(0, max||10);
+  }
+
+  const $=id=>document.getElementById(id);
+  const states=['state-input','state-loading','state-results','state-message'];
+  const show=s=>states.forEach(x=>$(x).classList.toggle('hidden',x!==s));
+
+  // API key (local only)
+  const KEY='lp_demo_key';
+  $('key').value=localStorage.getItem(KEY)||'';
+  $('saveKey').onclick=()=>{localStorage.setItem(KEY,$('key').value.trim());$('saveKey').textContent='Saved ✓';setTimeout(()=>$('saveKey').textContent='Save',1200);};
+
+  // Real Claude API call (browser direct fetch)
+  async function callModel(system, userText){
+    const key=($('key').value||localStorage.getItem(KEY)||'').trim();
+    if(!key) throw new Error('Add your Anthropic API key above first.');
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'content-type':'application/json',
+        'x-api-key':key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5',
+        max_tokens:256,
+        temperature:0.3,           // contract §3 decoding
+        system:system,
+        messages:[{role:'user',content:userText}]
+      })
+    });
+    if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e?.error?.message||('HTTP '+r.status));}
+    const data=await r.json();
+    return (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+  }
+
+  const input=$('input'), cta=$('cta');
+  input.addEventListener('input',()=>{cta.disabled=input.value.trim().length===0;});
+  cta.addEventListener('click',runFlow);
+
+  async function runFlow(){
+    const text=input.value.trim()||'How do I make a digital news website?';
+    $('askedVal').textContent=text;
+    show('state-loading');
+    try{
+      const raw=await callModel(SYSTEM, text);
+      const steps=parseSteps(raw,10);
+      if(steps.length===0 || (REFUSAL_RE.test(raw)&&steps.length===0)){ showMessage("I couldn't break that one down just now. Try rephrasing."); return; }
+      renderSteps(steps);
+    }catch(e){ showMessage(e.message); }
+  }
+
+  function renderSteps(steps){
+    const list=$('stepList'); list.innerHTML=''; $('complete').classList.remove('show');
+    show('state-results');
+    steps.forEach((t,i)=>setTimeout(()=>list.appendChild(makeStep(i,t)), i*120)); // gentle stagger
+    setTimeout(updateProgress, steps.length*120+50);
+  }
+
+  function makeStep(idx,text){
+    const wrap=document.createElement('div');
+    const el=document.createElement('div'); el.className='step';
+    el.innerHTML=`<div class="checkbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="num">${idx+1}</span><span class="step-text">${escapeHtml(text)}</span>`;
+    el.addEventListener('click',()=>{el.classList.toggle('done');updateProgress();});
+    wrap.appendChild(el);
+    const subWrap=document.createElement('div');
+    const deeper=document.createElement('div'); deeper.className='deeper'; deeper.textContent='⌄ Break this into smaller steps';
+    deeper.addEventListener('click',async e=>{
+      e.stopPropagation(); if(deeper.dataset.busy)return; deeper.dataset.busy='1';
+      deeper.className='deeper muted'; deeper.textContent='Breaking this down…';
+      try{
+        const raw=await callModel(SUBSTEP_SYSTEM, text);
+        const subs=parseSteps(raw,6);
+        deeper.style.display='none';
+        subs.forEach((s,j)=>setTimeout(()=>subWrap.appendChild(makeSub(s)), j*100));
+      }catch(err){ deeper.className='deeper'; deeper.textContent='Couldn’t split that — tap to retry'; deeper.dataset.busy=''; }
+    });
+    wrap.appendChild(subWrap); wrap.appendChild(deeper);
+    return wrap;
+  }
+  function makeSub(text){
+    const el=document.createElement('div'); el.className='substep';
+    el.innerHTML=`<div class="checkbox"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="dot">•</span><span class="sub-text">${escapeHtml(text)}</span>`;
+    el.addEventListener('click',()=>el.classList.toggle('done'));
+    return el;
+  }
+  function updateProgress(){
+    const steps=[...document.querySelectorAll('#stepList .step')];
+    const done=steps.filter(s=>s.classList.contains('done')).length;
+    $('fill').style.width=steps.length?(done/steps.length*100)+'%':'0%';
+    $('progressLabel').textContent=`${done} of ${steps.length} done`;
+    $('complete').classList.toggle('show',steps.length>0&&done===steps.length);
+  }
+  function showMessage(msg){ $('msgText').textContent=msg; show('state-message'); }
+  function reset(){ show('state-input'); }
+  function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>

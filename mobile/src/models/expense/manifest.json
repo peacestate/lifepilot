@@ -1,0 +1,54 @@
+{
+  "name": "expense_extractor",
+  "executorch_version": "v0.6.0",
+  "backend": "xnnpack",
+  "exported_utc": "2026-07-01T23:17:14Z",
+  "featurizer": {
+    "type": "hashed_char_ngram_bow",
+    "hash": "fnv1a_32",
+    "dim": 256,
+    "ngram": 3,
+    "lowercase": true,
+    "l2_normalize": true,
+    "note": "PORT TO TS EXACTLY \u00e2\u20ac\u201d pad with single spaces, FNV-1a over utf-8 bytes"
+  },
+  "line_tagger": {
+    "pte": "expense_line_tagger.pte",
+    "input_dim": 262,
+    "layout_dim": 6,
+    "layout_features": [
+      "y_rel",
+      "h_rel",
+      "conf",
+      "has_amount",
+      "has_date",
+      "alpha_ratio"
+    ],
+    "labels": [
+      "OTHER",
+      "MERCHANT",
+      "DATE",
+      "TOTAL",
+      "ITEM"
+    ],
+    "bytes": 88724,
+    "sha256": "b74ba330bdb7bff9e7144457aadc0b7354f06030dd7e9b6157bebe0b4536b654"
+  },
+  "category": {
+    "pte": "expense_category.pte",
+    "input_dim": 256,
+    "labels": [
+      "Food",
+      "Groceries",
+      "Transport",
+      "Health",
+      "Shopping",
+      "Utilities",
+      "Other"
+    ],
+    "bytes": 87708,
+    "sha256": "7e88e0884a548622ebf961ebf26c043bfb2489399ecb44de732b767239bfc1d2"
+  },
+  "synthetic_training": true,
+  "fallback": "deterministic parser ml/test/expense_eval.py (used when model confidence < 0.6)"
+}

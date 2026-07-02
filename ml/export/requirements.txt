@@ -1,0 +1,7 @@
+# Base deps only. executorch itself is intentionally NOT pinned here — each
+# script pip-installs it as its own first step (see EXECUTORCH_REF at the top
+# of each script), before importing torch. That order matters: installing
+# executorch after torch is already imported leaves a stale, incompatible
+# module loaded (see ml/export/README.md and the session notes on this bug).
+numpy==2.2.1
+torch==2.7.0

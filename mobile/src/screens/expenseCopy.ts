@@ -1,0 +1,21 @@
+/**
+ * OCR Expense microcopy — from design/expense/screen-spec.md. Calm, minimal.
+ */
+export const EXPENSE_COPY = {
+  title: 'Expenses',
+  totalThisList: (t: string) => `${t} tracked`,
+  empty: 'No receipts yet. Scan one to start — it never leaves your phone.',
+  scanCta: 'Scan a receipt',
+  reading: 'Reading your receipt, on your device…',
+  reviewTitle: 'Looks right?',
+  reviewSub: 'Tap any field to fix it. Flagged ones are worth a glance.',
+  merchant: 'Where',
+  date: 'When',
+  amount: 'Amount',
+  category: 'Category',
+  save: 'Save expense',
+  retake: 'Scan again',
+  checkThis: 'check this',
+  privacy: 'The photo and everything read from it stay on your phone.',
+  error: "Couldn't read that one — try another shot, or add it by hand.",
+} as const;

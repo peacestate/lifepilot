@@ -1,0 +1,53 @@
+{
+  "name": "lifepilot",
+  "version": "0.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "bundle-liteparse": "node scripts/bundle-liteparse.js",
+    "prebuild": "expo prebuild",
+    "test": "jest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@llamaindex/liteparse-wasm": "*",
+    "expo": "~53.0.0",
+    "expo-asset": "~11.1.5",
+    "expo-battery": "~9.1.4",
+    "expo-dev-client": "~5.1.0",
+    "expo-document-picker": "~13.0.3",
+    "expo-file-system": "~18.1.10",
+    "expo-notifications": "~0.31.4",
+    "expo-speech": "~13.1.7",
+    "expo-status-bar": "~2.2.3",
+    "react": "19.0.0",
+    "react-native": "0.79.5",
+    "react-native-executorch": "^0.4.10",
+    "react-native-mlkit-ocr": "^0.3.0",
+    "react-native-safe-area-context": "5.4.0",
+    "react-native-svg": "15.11.2",
+    "react-native-vision-camera": "^4.0.0",
+    "react-native-webview": "^13.14.2"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.0",
+    "@callstack/polygen-metro-config": "*",
+    "@types/jest": "^29.5.12",
+    "@types/react": "~19.0.0",
+    "eslint": "^8.57.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~53.0.0",
+    "typescript": "~5.8.3"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "**/*.test.ts",
+      "**/*.test.tsx"
+    ]
+  }
+}

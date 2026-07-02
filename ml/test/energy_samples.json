@@ -1,0 +1,13 @@
+{
+  "_comment": "Energy Predictor eval scenarios. Each archetype is expanded by energy_eval.py into a 7-day x 12-feature window (contract §3) using the SAME synthetic priors as training, so the harness can sanity-check the curve shape without real user data. 'expect' is a loose plausibility hint, not a hard label.",
+  "scaler_mean": [7.0, 0.80, 4.0, 7.0, 7.0, 35.0, 0.30, 4.5, 60.0, 25.0, 0.0, 0.0],
+  "features": ["sleep_duration_h","sleep_quality","sleep_midpoint_h","wake_time_h","steps_k","active_minutes","movement_intensity","screen_time_h","phone_pickups","late_night_screen_min","dow_sin","dow_cos"],
+  "scenarios": [
+    {"name": "well_rested_weekday", "sleep_h": 8.0, "quality": 0.92, "wake_h": 7.0, "steps_k": 9, "active": 45, "late_screen": 5, "dow": 2, "expect": "high overall, clear late-morning peak, mild afternoon dip"},
+    {"name": "sleep_deprived", "sleep_h": 4.5, "quality": 0.55, "wake_h": 6.5, "steps_k": 4, "active": 10, "late_screen": 90, "dow": 3, "expect": "low + flat curve, earlier fade"},
+    {"name": "weekend_active", "sleep_h": 8.5, "quality": 0.88, "wake_h": 9.0, "steps_k": 14, "active": 80, "late_screen": 20, "dow": 6, "expect": "high, peak shifted later"},
+    {"name": "late_night_owl", "sleep_h": 6.5, "quality": 0.7, "wake_h": 10.0, "steps_k": 6, "active": 25, "late_screen": 120, "dow": 4, "expect": "phase-delayed curve, lower morning"},
+    {"name": "average_day", "sleep_h": 7.0, "quality": 0.8, "wake_h": 7.0, "steps_k": 7, "active": 35, "late_screen": 25, "dow": 1, "expect": "mid overall, typical shape"},
+    {"name": "high_screen_low_activity", "sleep_h": 6.0, "quality": 0.65, "wake_h": 8.0, "steps_k": 2, "active": 5, "late_screen": 70, "dow": 0, "expect": "depressed afternoon, lower overall"}
+  ]
+}

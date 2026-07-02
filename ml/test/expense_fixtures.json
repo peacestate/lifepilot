@@ -1,0 +1,104 @@
+{
+  "_comment": "OCR Expense reference fixtures. Each 'ocr' mimics what platform-native OCR (Apple Vision / ML Kit) returns: text lines with y position, height, and per-line confidence. 'expect' is the field-extraction contract the deterministic parser (expense_eval.py == mobile/src/features/expense TS port) must satisfy. Covers grocery, restaurant(+tip), gas/transport, pharmacy, a faded low-confidence receipt (review path), and a non-USD (INR) receipt.",
+  "fixtures": [
+    {
+      "name": "grocery",
+      "ocr": {
+        "height": 200,
+        "lines": [
+          {"text": "WHOLE FOODS MARKET", "y": 10, "h": 20, "conf": 0.97},
+          {"text": "123 Main St", "y": 38, "h": 10, "conf": 0.9},
+          {"text": "Bananas 2.50", "y": 70, "h": 11, "conf": 0.95},
+          {"text": "Almond Milk 4.99", "y": 85, "h": 11, "conf": 0.95},
+          {"text": "SUBTOTAL 7.49", "y": 112, "h": 11, "conf": 0.96},
+          {"text": "TAX 0.60", "y": 127, "h": 11, "conf": 0.96},
+          {"text": "TOTAL 8.09", "y": 143, "h": 12, "conf": 0.96},
+          {"text": "VISA 8.09", "y": 162, "h": 11, "conf": 0.9},
+          {"text": "03/14/2026", "y": 182, "h": 11, "conf": 0.92}
+        ]
+      },
+      "expect": {"total_amount": 8.09, "currency": "USD", "date_iso": "2026-03-14",
+                 "merchant_contains": "WHOLE FOODS", "category": "Groceries", "needs_review": false}
+    },
+    {
+      "name": "restaurant",
+      "ocr": {
+        "height": 210,
+        "lines": [
+          {"text": "The Corner Bistro", "y": 12, "h": 18, "conf": 0.95},
+          {"text": "Burger 12.00", "y": 60, "h": 11, "conf": 0.93},
+          {"text": "Fries 4.50", "y": 75, "h": 11, "conf": 0.93},
+          {"text": "Iced Tea 3.00", "y": 90, "h": 11, "conf": 0.93},
+          {"text": "SUBTOTAL 19.50", "y": 120, "h": 11, "conf": 0.95},
+          {"text": "TAX 1.56", "y": 135, "h": 11, "conf": 0.95},
+          {"text": "TIP 4.00", "y": 150, "h": 11, "conf": 0.94},
+          {"text": "TOTAL 25.06", "y": 166, "h": 12, "conf": 0.95},
+          {"text": "Mar 14, 2026", "y": 188, "h": 11, "conf": 0.9}
+        ]
+      },
+      "expect": {"total_amount": 25.06, "currency": "USD", "date_iso": "2026-03-14",
+                 "merchant_contains": "Bistro", "category": "Food", "needs_review": false}
+    },
+    {
+      "name": "gas",
+      "ocr": {
+        "height": 170,
+        "lines": [
+          {"text": "SHELL", "y": 10, "h": 18, "conf": 0.94},
+          {"text": "Unleaded Fuel", "y": 45, "h": 10, "conf": 0.88},
+          {"text": "Gallons 9.51 @ 3.50", "y": 65, "h": 10, "conf": 0.85},
+          {"text": "TOTAL 45.20", "y": 95, "h": 12, "conf": 0.93},
+          {"text": "14/06/2026", "y": 120, "h": 11, "conf": 0.91},
+          {"text": "VISA 45.20", "y": 140, "h": 11, "conf": 0.88}
+        ]
+      },
+      "expect": {"total_amount": 45.20, "currency": "USD", "date_iso": "2026-06-14",
+                 "merchant_contains": "SHELL", "category": "Transport", "needs_review": false}
+    },
+    {
+      "name": "pharmacy",
+      "ocr": {
+        "height": 180,
+        "lines": [
+          {"text": "CVS Pharmacy", "y": 10, "h": 16, "conf": 0.95},
+          {"text": "Ibuprofen 200mg 8.99", "y": 55, "h": 11, "conf": 0.9},
+          {"text": "Vitamin D 12.49", "y": 70, "h": 11, "conf": 0.9},
+          {"text": "SUBTOTAL 21.48", "y": 100, "h": 11, "conf": 0.94},
+          {"text": "TAX 1.72", "y": 115, "h": 11, "conf": 0.94},
+          {"text": "TOTAL 23.20", "y": 131, "h": 12, "conf": 0.94},
+          {"text": "2026-06-10", "y": 156, "h": 11, "conf": 0.93}
+        ]
+      },
+      "expect": {"total_amount": 23.20, "currency": "USD", "date_iso": "2026-06-10",
+                 "merchant_contains": "CVS", "category": "Health", "needs_review": false}
+    },
+    {
+      "name": "faded",
+      "ocr": {
+        "height": 120,
+        "lines": [
+          {"text": "GROCERY OUTLET", "y": 10, "h": 14, "conf": 0.55},
+          {"text": "Item 5.00", "y": 50, "h": 11, "conf": 0.5},
+          {"text": "TOTAL 18.75", "y": 90, "h": 12, "conf": 0.45}
+        ]
+      },
+      "expect": {"total_amount": 18.75, "currency": "USD", "date_iso": null,
+                 "merchant_contains": "GROCERY", "category": "Groceries", "needs_review": true}
+    },
+    {
+      "name": "cafe_inr",
+      "ocr": {
+        "height": 160,
+        "lines": [
+          {"text": "Cafe Mumbai", "y": 10, "h": 16, "conf": 0.93},
+          {"text": "Masala Chai 80.00", "y": 55, "h": 11, "conf": 0.9},
+          {"text": "Samosa 60.00", "y": 70, "h": 11, "conf": 0.9},
+          {"text": "TOTAL ₹140.00", "y": 110, "h": 12, "conf": 0.93},
+          {"text": "12 Jun 2026", "y": 135, "h": 11, "conf": 0.9}
+        ]
+      },
+      "expect": {"total_amount": 140.00, "currency": "INR", "date_iso": "2026-06-12",
+                 "merchant_contains": "Cafe", "category": "Food", "needs_review": false}
+    }
+  ]
+}

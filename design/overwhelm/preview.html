@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LifePilot — Overwhelm Manager (interactive preview)</title>
+<style>
+  /* === Tokens — verbatim from design/overwhelm/screen-spec.md / tokens.ts === */
+  :root{
+    --background:#F7F8F6; --surface:#FFFFFF; --surfaceAlt:#EEF1ED; --border:#E1E5DF;
+    --textPrimary:#2C322E; --textSecondary:#5C645E; --textTertiary:#9AA29B;
+    --accent:#6B9080; --accentPressed:#5A7C6E; --accentMuted:#C7D6CF;
+    --onAccent:#FFFFFF; --error:#A86B6B;
+    --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-pill:999px;
+  }
+  *{box-sizing:border-box; -webkit-font-smoothing:antialiased;}
+  body{
+    margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    gap:14px; padding:28px 12px 40px;
+    background:#dfe4df;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--textPrimary);
+  }
+  .lead{color:#46514a; font-size:13px; text-align:center; max-width:360px; line-height:1.5;}
+  .lead b{color:#2C322E;}
+
+  /* phone frame */
+  .phone{
+    width:380px; max-width:96vw; height:760px; background:var(--background);
+    border-radius:40px; border:10px solid #2b302c; position:relative; overflow:hidden;
+    box-shadow:0 24px 60px rgba(20,30,24,.32);
+  }
+  .notch{position:absolute; top:0; left:50%; transform:translateX(-50%); width:150px; height:26px;
+    background:#2b302c; border-radius:0 0 16px 16px; z-index:5;}
+  .status{position:absolute; top:0; left:0; right:0; height:44px; display:flex; align-items:center;
+    justify-content:space-between; padding:0 24px; font-size:13px; font-weight:600; color:var(--textPrimary); z-index:4;}
+
+  .screen{position:absolute; inset:44px 0 0 0; display:flex; flex-direction:column; padding:8px 20px 20px;}
+  .scroll{flex:1; overflow-y:auto; -ms-overflow-style:none; scrollbar-width:none;}
+  .scroll::-webkit-scrollbar{display:none;}
+
+  /* typography roles */
+  .h1{font-size:26px; line-height:34px; font-weight:600; margin:6px 0 0;}
+  .h2{font-size:20px; line-height:28px; font-weight:600;}
+  .subtext{font-size:15px; line-height:22px; color:var(--textSecondary); margin-top:10px;}
+  .caption{font-size:13px; line-height:18px; color:var(--textSecondary);}
+
+  /* input */
+  .input{
+    width:100%; margin-top:20px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--r-md); padding:14px 16px; font-size:17px; line-height:26px; color:var(--textPrimary);
+    min-height:120px; resize:none; outline:none; font-family:inherit; transition:border-color .15s, box-shadow .15s;
+  }
+  .input::placeholder{color:var(--textTertiary);}
+  .input:focus{border-color:var(--accent); box-shadow:0 2px 8px rgba(44,50,46,.06);}
+
+  /* buttons */
+  .cta{
+    width:100%; margin-top:16px; border:none; border-radius:var(--r-md); padding:16px;
+    background:var(--accent); color:var(--onAccent); font-size:17px; font-weight:600; font-family:inherit;
+    cursor:pointer; transition:background .15s, transform .05s;
+  }
+  .cta:active{background:var(--accentPressed); transform:scale(.99);}
+  .cta:disabled{background:var(--accentMuted); cursor:default;}
+  .btn-row{display:flex; gap:12px; margin-top:16px;}
+  .secondary{
+    flex:1; background:transparent; border:1px solid var(--border); border-radius:var(--r-md); padding:14px;
+    color:var(--textSecondary); font-size:15px; font-weight:600; font-family:inherit; cursor:pointer;
+  }
+  .secondary:active{background:var(--surfaceAlt);}
+
+  .footnote{display:flex; align-items:center; gap:7px; margin-top:18px; color:var(--textTertiary); font-size:13px;}
+  .footnote svg{flex:none;}
+
+  /* loading */
+  .center{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:8px; padding:0 12px;}
+  .pulse{width:84px; height:84px; border-radius:var(--r-pill); background:var(--accent); opacity:.18; margin-bottom:18px;
+    animation:breathe 2.6s ease-in-out infinite;}
+  @keyframes breathe{0%,100%{transform:scale(.78); opacity:.14;}50%{transform:scale(1.05); opacity:.32;}}
+  @media (prefers-reduced-motion: reduce){ .pulse{animation:none; opacity:.22;} }
+  .offline-pill{margin-top:6px; display:inline-flex; align-items:center; gap:6px; background:var(--surfaceAlt);
+    color:var(--textSecondary); font-size:13px; padding:7px 12px; border-radius:var(--r-pill);}
+
+  /* results */
+  .chip{display:inline-flex; flex-direction:column; gap:2px; background:var(--surfaceAlt); border-radius:var(--r-md);
+    padding:12px 14px; margin-top:6px;}
+  .chip .lbl{font-size:13px; color:var(--textSecondary);}
+  .chip .val{font-size:15px; line-height:22px; color:var(--textPrimary);}
+
+  .progress-wrap{margin:18px 0 6px;}
+  .progress-track{height:8px; background:var(--surfaceAlt); border-radius:var(--r-pill); overflow:hidden;}
+  .progress-fill{height:100%; width:0; background:var(--accent); border-radius:var(--r-pill); transition:width .35s ease;}
+  .progress-label{margin-top:8px; font-size:13px; color:var(--textSecondary);}
+
+  .step{display:flex; align-items:flex-start; gap:14px; padding:16px 4px; border-bottom:1px solid var(--border); cursor:pointer;
+    opacity:0; transform:translateY(6px); animation:stepin .35s ease forwards;}
+  @keyframes stepin{to{opacity:1; transform:none;}}
+  .step:last-child{border-bottom:none;}
+  .checkbox{flex:none; width:26px; height:26px; border-radius:var(--r-pill); border:2px solid var(--accent);
+    display:flex; align-items:center; justify-content:center; margin-top:1px; transition:background .15s;}
+  .checkbox svg{opacity:0; transition:opacity .12s;}
+  .step.done .checkbox{background:var(--accent);}
+  .step.done .checkbox svg{opacity:1;}
+  .num{font-size:13px; font-weight:600; color:var(--textTertiary); margin-top:3px; min-width:14px;}
+  .step-text{font-size:17px; line-height:26px; color:var(--textPrimary);}
+  .step.done .step-text{color:var(--textTertiary); text-decoration:line-through;}
+
+  /* go-deeper feature */
+  .deeper{padding:6px 4px 12px 54px; cursor:pointer; font-size:13px; color:var(--accent);}
+  .deeper:hover{text-decoration:underline;}
+  .deeper.muted{color:var(--textTertiary); cursor:default;}
+  .deeper.muted:hover{text-decoration:none;}
+  .substep{display:flex; align-items:flex-start; gap:12px; padding:11px 4px 11px 54px;
+    background:var(--surfaceAlt); border-top:1px solid var(--border); cursor:pointer;
+    opacity:0; transform:translateY(4px); animation:stepin .3s ease forwards;}
+  .substep .checkbox{width:22px; height:22px;}
+  .substep .dot{color:var(--accent); font-size:17px; line-height:24px; margin-top:0;}
+  .substep .sub-text{font-size:15px; line-height:22px; color:var(--textSecondary);}
+  .substep.done .sub-text{color:var(--textTertiary); text-decoration:line-through;}
+  .substep.done .checkbox{background:var(--accent);}
+  .substep.done .checkbox svg{opacity:1;}
+
+  .complete{margin-top:22px; text-align:center; background:var(--surfaceAlt); border-radius:var(--r-lg); padding:20px;
+    color:var(--textPrimary); font-size:17px; line-height:26px; display:none;}
+  .complete.show{display:block;}
+
+  .message{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; padding:0 16px;}
+  .message .glyph{width:56px; height:56px; border-radius:var(--r-pill); background:var(--surfaceAlt);
+    display:flex; align-items:center; justify-content:center; margin-bottom:8px;}
+  .hidden{display:none !important;}
+
+  /* dev controls under the phone */
+  .controls{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; max-width:380px;}
+  .controls button{background:#fff; border:1px solid #c4ccc5; color:#3a443d; font-size:12px; padding:7px 12px;
+    border-radius:var(--r-pill); cursor:pointer;}
+  .controls button:hover{background:#f1f4f1;}
+  .tag{font-size:11px; color:#5a655d; align-self:center; margin-right:2px;}
+</style>
+</head>
+<body>
+  <div class="lead"><b>Overwhelm Manager</b> — interactive preview of the real screen (designer tokens + copy). Type something and tap <b>Break it down</b>. This simulates the on-device model; the shipped app runs Llama 3.2 1B locally.</div>
+
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="status"><span>9:41</span><span>􀙇 􀛨 􀋊</span></div>
+
+    <div class="screen">
+      <!-- ===== INPUT STATE ===== -->
+      <div id="state-input" class="scroll">
+        <div class="h1">What's overwhelming you today?</div>
+        <div class="subtext">Type it out. I'll break it into small, doable steps — right here on your phone.</div>
+        <textarea id="input" class="input" placeholder='e.g. "Plan my sister&apos;s birthday next weekend"'></textarea>
+        <button id="cta" class="cta" disabled>Break it down</button>
+        <div class="footnote">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9AA29B" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          Runs fully on your device. Nothing is sent anywhere.
+        </div>
+      </div>
+
+      <!-- ===== LOADING STATE ===== -->
+      <div id="state-loading" class="center hidden">
+        <div class="pulse"></div>
+        <div class="h2">Thinking this through on your device…</div>
+        <div class="offline-pill">✈︎ Works in airplane mode. Your words never leave this phone.</div>
+        <button id="stop" class="secondary" style="flex:none; margin-top:22px; min-width:120px;">Stop</button>
+      </div>
+
+      <!-- ===== RESULTS STATE ===== -->
+      <div id="state-results" class="scroll hidden">
+        <div class="chip"><span class="lbl">You asked:</span><span id="askedVal" class="val"></span></div>
+        <div class="progress-wrap">
+          <div class="progress-track"><div id="fill" class="progress-fill"></div></div>
+          <div id="progressLabel" class="progress-label">0 of 0 done</div>
+        </div>
+        <div id="stepList"></div>
+        <div id="complete" class="complete">Nicely done. You handled it, one step at a time.</div>
+        <div class="btn-row">
+          <button class="secondary" onclick="reset()">Start over</button>
+        </div>
+      </div>
+
+      <!-- ===== EMPTY / ERROR STATE ===== -->
+      <div id="state-message" class="message hidden">
+        <div class="glyph" id="msgGlyph"></div>
+        <div class="h2" id="msgText"></div>
+        <div class="btn-row" style="width:100%;">
+          <button class="secondary" onclick="reset()">Edit</button>
+          <button class="cta" style="margin-top:0;" onclick="runFlow(true)">Try again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <span class="tag">jump to:</span>
+    <button onclick="showLoading()">Loading</button>
+    <button onclick="showEmpty()">Empty result</button>
+    <button onclick="showError()">Error</button>
+    <button onclick="reset()">Input</button>
+  </div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const states = ['state-input','state-loading','state-results','state-message'];
+  const show = s => states.forEach(x => $(x).classList.toggle('hidden', x !== s));
+
+  // canned on-device "model output" (parsed to 5-10 imperative steps, contract §4)
+  const STEPS = [
+    "Pick a date and text your sister to confirm she's free",
+    "Decide on a rough budget so the rest gets easier",
+    "Choose a place — home, a restaurant, or a park",
+    "Make a short guest list of 8–10 people",
+    "Send a simple group invite with the date and place",
+    "Order or plan a cake two days before",
+  ];
+  // canned sub-steps the on-device model would generate per step (go-deeper feature)
+  const SUBSTEPS = [
+    ["Open your calendar and pick two possible dates","Text your sister both options","Lock in the date she prefers"],
+    ["Decide the most you want to spend","Split it across food, decor, and cake","Write the numbers down somewhere"],
+    ["List 3 places you both like","Check they're free on the date","Pick the easiest one"],
+    ["Write down close family first","Add her closest friends","Stop at about 10 names"],
+    ["Create a group chat or email","Paste the date, time, and place","Send it and ask for a thumbs up"],
+    ["Choose a flavor she loves","Order online or call the bakery","Set a reminder to pick it up"],
+  ];
+
+  const input = $('input'), cta = $('cta');
+  input.addEventListener('input', () => { cta.disabled = input.value.trim().length === 0; });
+  // Return must NOT submit (a11y rule §5) — textarea naturally inserts newline; nothing to block.
+  cta.addEventListener('click', () => runFlow(false));
+  $('stop').addEventListener('click', reset);
+
+  let streamTimer = null;
+
+  function runFlow(isRetry){
+    const text = (input.value.trim() || "Plan my sister's birthday next weekend");
+    $('askedVal').textContent = text;
+    showLoading();
+    // simulate on-device warm-up + first token (~1.4s), then stream steps in
+    setTimeout(() => streamResults(), 1400);
+  }
+
+  function showLoading(){ show('state-loading'); }
+
+  function streamResults(){
+    const list = $('stepList'); list.innerHTML = '';
+    $('complete').classList.remove('show');
+    show('state-results');
+    let i = 0;
+    updateProgress();
+    streamTimer = setInterval(() => {
+      if(i >= STEPS.length){ clearInterval(streamTimer); return; }
+      list.appendChild(makeStep(i, STEPS[i]));
+      i++;
+      updateProgress();
+    }, 650); // each step "generates" — perceived latency is the first step (contract §5)
+  }
+
+  function makeStep(idx, text){
+    const wrap = document.createElement('div');
+
+    const el = document.createElement('div');
+    el.className = 'step';
+    el.innerHTML = `
+      <div class="checkbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="num">${idx+1}</span>
+      <span class="step-text">${text}</span>`;
+    el.addEventListener('click', () => { el.classList.toggle('done'); updateProgress(); });
+    wrap.appendChild(el);
+
+    // "Break this into smaller steps" control + sub-step container
+    const deeper = document.createElement('div');
+    deeper.className = 'deeper';
+    deeper.textContent = '⌄ Break this into smaller steps';
+    const subWrap = document.createElement('div');
+    deeper.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (deeper.dataset.done) return;
+      deeper.dataset.done = '1';
+      deeper.className = 'deeper muted';
+      deeper.textContent = 'Breaking this down on your device…';
+      // simulate the on-device sub-breakdown, then stream sub-steps in
+      setTimeout(() => {
+        deeper.style.display = 'none';
+        (SUBSTEPS[idx] || []).forEach((t, j) => {
+          setTimeout(() => subWrap.appendChild(makeSub(t)), j * 350);
+        });
+      }, 900);
+    });
+    wrap.appendChild(subWrap);
+    wrap.appendChild(deeper);
+    return wrap;
+  }
+
+  function makeSub(text){
+    const el = document.createElement('div');
+    el.className = 'substep';
+    el.innerHTML = `
+      <div class="checkbox"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span class="dot">•</span>
+      <span class="sub-text">${text}</span>`;
+    el.addEventListener('click', () => el.classList.toggle('done'));
+    return el;
+  }
+
+  function updateProgress(){
+    const steps = [...document.querySelectorAll('#stepList .step')];
+    const total = steps.length;
+    const done = steps.filter(s => s.classList.contains('done')).length;
+    $('fill').style.width = total ? (done/total*100)+'%' : '0%';
+    $('progressLabel').textContent = `${done} of ${total} done`;
+    $('complete').classList.toggle('show', total > 0 && done === total);
+  }
+
+  function showEmpty(){
+    $('msgGlyph').innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#9AA29B" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 10h.01M15 10h.01M9 15c1.5-1 4.5-1 6 0"/></svg>';
+    $('msgText').textContent = "I couldn't break that one down just now. Let's try again — or tweak the wording.";
+    show('state-message');
+  }
+  function showError(){
+    $('msgGlyph').innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#A86B6B" stroke-width="2"><path d="M12 8v5M12 16h.01"/><circle cx="12" cy="12" r="9"/></svg>';
+    $('msgText').textContent = "Something hiccuped on this end. Your text is safe — let's try again.";
+    show('state-message');
+  }
+  function reset(){ if(streamTimer) clearInterval(streamTimer); show('state-input'); }
+</script>
+</body>
+</html>
