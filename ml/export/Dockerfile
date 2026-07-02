@@ -16,7 +16,10 @@ FROM python:3.11-slim
 WORKDIR /export
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# torch is a large download; default pip timeouts are too short for it on a slow
+# or congested connection — raise timeout/retries rather than fail a real build
+# over a transient network hiccup.
+RUN pip install --no-cache-dir --timeout=180 --retries=5 -r requirements.txt
 
 COPY *.py ./
 COPY README.md ./
