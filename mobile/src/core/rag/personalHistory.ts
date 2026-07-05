@@ -45,14 +45,24 @@ function todayKey(): string {
 }
 
 export const personalHistory = {
-  /** Upsert today's summary for a feature. Call once per day after computing. */
+  /**
+   * Upsert today's summary for a feature — MERGES onto whatever's already stored for
+   * today, never a blind overwrite. Multiple independent writers can touch the same
+   * (feature, date) slot in one day (e.g. Hydration's calibration record and a Health
+   * Import save both write to today's 'hydration' entry) — a full replace would let
+   * whichever call happens last silently destroy the other's fields. Shallow merge at
+   * the top level: a key present in the new `data` still wins over the old value for
+   * that same key, but unrelated keys from the existing entry survive.
+   */
   async saveToday(feature: HistoryFeature, data: Record<string, unknown>): Promise<void> {
     const store = await load();
     const date = todayKey();
     const idx = store.findIndex((e) => e.feature === feature && e.date === date);
-    const entry: HistoryEntry = { date, feature, data, createdAt: Date.now() };
-    if (idx >= 0) store[idx] = entry;
-    else store.unshift(entry);
+    if (idx >= 0) {
+      store[idx] = { ...store[idx], data: { ...store[idx].data, ...data }, createdAt: Date.now() };
+    } else {
+      store.unshift({ date, feature, data, createdAt: Date.now() });
+    }
     // keep only MAX_DAYS per feature
     const trimmed = store.filter((e) => e.feature === feature).slice(0, MAX_DAYS);
     const others = store.filter((e) => e.feature !== feature);

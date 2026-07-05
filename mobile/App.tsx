@@ -10,16 +10,19 @@
  */
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LiteParseWebView } from './src/core/liteparse/LiteParseWebView';
+import { LlamaProvider } from './src/core/llm/LlamaProvider';
 import { attachGlassesOutput } from './src/core/nudges/glassesOutput';
 import { attachNotificationOutput } from './src/core/nudges/notificationOutput';
 import { nudgeScheduler } from './src/core/nudges/nudgeScheduler';
 import { getFlag, setFlag } from './src/core/persistence';
+import { healthSyncScheduler } from './src/features/energy/healthSyncScheduler';
 import { useEnergyPredictor } from './src/features/energy/useEnergyPredictor';
 import { useHydrationTracker } from './src/features/hydration/useHydrationTracker';
+import { checkOverwhelmNudges } from './src/features/overwhelm/overwhelmReminder';
 import type { FeatureKey } from './src/screens/HomeScreen';
 import EnergyScreen from './src/screens/EnergyScreen';
 import ExpenseScreen from './src/screens/ExpenseScreen';
@@ -85,13 +88,22 @@ function NudgeChecks() {
   // stable refs so register/unregister doesn't thrash on every re-render
   const hydCheckRef = useRef(hydration.checkNudge);
   const engCheckRef = useRef(energy.checkNudge);
+  const engRefreshRef = useRef(energy.refresh);
   hydCheckRef.current = hydration.checkNudge;
   engCheckRef.current = energy.checkNudge;
+  engRefreshRef.current = energy.refresh;
 
   useEffect(() => {
     const u1 = nudgeScheduler.register('hydration', () => hydCheckRef.current());
     const u2 = nudgeScheduler.register('energy', () => engCheckRef.current());
-    return () => { u1(); u2(); };
+    const u3 = nudgeScheduler.register('overwhelm', () => void checkOverwhelmNudges());
+    return () => { u1(); u2(); u3(); };
+  }, []);
+
+  useEffect(() => {
+    healthSyncScheduler.register(() => engRefreshRef.current());
+    healthSyncScheduler.start();
+    return () => healthSyncScheduler.stop();
   }, []);
 
   return null;
@@ -126,31 +138,56 @@ export default function App() {
   const navigate = useCallback((s: FeatureKey | 'settings') => setScreen(s), []);
   const goHome = useCallback(() => setScreen('home'), []);
 
+  // Screen is a flat JS state machine, not a real navigator — there is no back
+  // stack for the OS to pop. Without this, Android's hardware/gesture back
+  // button falls through to the default "finish the activity" behavior on
+  // EVERY screen (not just home), exiting the whole app instead of returning
+  // to LifePilot's own home screen. Mirrors each screen's own in-app back
+  // button target exactly (overwhelmHistory → overwhelm, everything else →
+  // home); only on 'home'/'onboarding'/'loading' do we let the default
+  // (exit app) behavior happen.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (screen === 'overwhelmHistory') {
+        setScreen('overwhelm');
+        return true;
+      }
+      if (screen !== 'home' && screen !== 'onboarding' && screen !== 'loading') {
+        goHome();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+  }, [screen, goHome]);
+
   if (screen === 'loading') return null;
 
   return (
     <SafeAreaProvider>
-      <View style={styles.root}>
-        <StatusBar style="dark" />
-        <NudgeChecks />
-        <LiteParseWebView />
+      <LlamaProvider>
+        <View style={styles.root}>
+          <StatusBar style="dark" />
+          <NudgeChecks />
+          <LiteParseWebView />
 
-        {screen === 'onboarding' && <OnboardingScreen onDone={finishOnboarding} />}
-        {screen === 'home' && <HomeScreen onNavigate={navigate} />}
-        {(screen === 'overwhelm' || screen === 'energy' || screen === 'hydration' || screen === 'expense') && (
-          <FeatureShell title={FEATURE_TITLES[screen] ?? screen} onBack={goHome}>
-            {screen === 'overwhelm' && (
-              <OverwhelmManagerScreen onOpenHistory={() => setScreen('overwhelmHistory')} />
-            )}
-            {screen === 'energy' && <EnergyScreen />}
-            {screen === 'hydration' && <HydrationScreen />}
-            {screen === 'expense' && <ExpenseScreen />}
-          </FeatureShell>
-        )}
-        {screen === 'healthImport' && <HealthImportScreen onBack={goHome} />}
-        {screen === 'settings' && <SettingsScreen onBack={goHome} />}
-        {screen === 'overwhelmHistory' && <PastTasksScreen onBack={() => setScreen('overwhelm')} />}
-      </View>
+          {screen === 'onboarding' && <OnboardingScreen onDone={finishOnboarding} />}
+          {screen === 'home' && <HomeScreen onNavigate={navigate} />}
+          {(screen === 'overwhelm' || screen === 'energy' || screen === 'hydration' || screen === 'expense') && (
+            <FeatureShell title={FEATURE_TITLES[screen] ?? screen} onBack={goHome}>
+              {screen === 'overwhelm' && (
+                <OverwhelmManagerScreen onOpenHistory={() => setScreen('overwhelmHistory')} />
+              )}
+              {screen === 'energy' && <EnergyScreen />}
+              {screen === 'hydration' && <HydrationScreen />}
+              {screen === 'expense' && <ExpenseScreen />}
+            </FeatureShell>
+          )}
+          {screen === 'healthImport' && <HealthImportScreen onBack={goHome} />}
+          {screen === 'settings' && <SettingsScreen onBack={goHome} />}
+          {screen === 'overwhelmHistory' && <PastTasksScreen onBack={() => setScreen('overwhelm')} />}
+        </View>
+      </LlamaProvider>
     </SafeAreaProvider>
   );
 }

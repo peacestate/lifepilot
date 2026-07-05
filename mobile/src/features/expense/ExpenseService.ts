@@ -71,7 +71,7 @@ function amountsIn(t: string): number[] {
 }
 
 /* ── §3 total ──────────────────────────────────────────────────────────────── */
-function extractTotal(lines: OcrLine[], receiptText: string): Field<Money> {
+export function extractTotal(lines: OcrLine[], receiptText: string): Field<Money> {
   type C = { amount: number; y: number; conf: number; positive: boolean; excluded: boolean; currency: string | null; src: string };
   const cands: C[] = [];
   for (const ln of lines) {
@@ -115,7 +115,7 @@ function disambiguate(a: number, b: number, c: number): [string, boolean] | null
   if (!validYmd(year, mon, day)) return null;
   return [`${year.toString().padStart(4, '0')}-${mon.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`, amb];
 }
-function extractDate(lines: OcrLine[]): Field<string> & { ambiguous: boolean } {
+export function extractDate(lines: OcrLine[]): Field<string> & { ambiguous: boolean } {
   const cands: Array<[string, boolean, OcrLine]> = [];
   for (const ln of lines) {
     const t = ln.text;

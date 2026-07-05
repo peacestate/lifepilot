@@ -7,14 +7,16 @@
  * layering in via the same ExpenseFields shape. NO network anywhere.
  */
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
+import { ManualExpenseEntryForm } from '../components/ManualExpenseEntryForm';
 import { moneyLabel, EXPENSE } from '../features/expense/ExpenseService';
 import { CameraSheet } from '../features/expense/CameraSheet';
+import { buildMonthlySummary } from '../features/expense/expenseInsights';
 import { useExpenseScanner } from '../features/expense/useExpenseScanner';
 import type { ExpenseFields } from '../features/expense/types';
 import { color, layout, radii, space, type } from '../theme/tokens';
@@ -23,11 +25,16 @@ import { EXPENSE_COPY as C } from './expenseCopy';
 export function ExpenseScreen() {
   const s = useExpenseScanner();
   const [showCamera, setShowCamera] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   const openCamera = () => setShowCamera(true);
   const onCapture = (uri: string) => {
     setShowCamera(false);
     void s.scan(uri);
+  };
+  const onSubmitManual: React.ComponentProps<typeof ManualExpenseEntryForm>['onSubmit'] = (entry) => {
+    setShowManual(false);
+    s.saveManual(entry);
   };
 
   return (
@@ -45,7 +52,14 @@ export function ExpenseScreen() {
               <SecondaryButton label={C.retake} onPress={openCamera} />
             </View>
           ) : (
-            <ListBody records={s.records} onScan={openCamera} onUpload={s.scanFromFile} />
+            <ListBody
+              records={s.records}
+              nudge={s.nudge}
+              onDismissNudge={s.dismissNudge}
+              onScan={openCamera}
+              onUpload={s.scanFromFile}
+              onManual={() => setShowManual(true)}
+            />
           )}
         </View>
       </ScrollView>
@@ -55,19 +69,86 @@ export function ExpenseScreen() {
         onCapture={onCapture}
         onClose={() => setShowCamera(false)}
       />
+
+      <Modal visible={showManual} animationType="slide" transparent onRequestClose={() => setShowManual(false)}>
+        <View style={styles.manualBackdrop}>
+          <View style={styles.manualSheet}>
+            <ManualExpenseEntryForm
+              categories={EXPENSE.CATEGORIES}
+              onSubmit={onSubmitManual}
+              title={C.manualTitle}
+              merchantLabel={C.manualMerchant}
+              amountLabel={C.manualAmount}
+              categoryLabel={C.manualCategory}
+              dateLabel={C.manualDate}
+              submitLabel={C.manualSubmit}
+            />
+            <View style={styles.manualCancelGap}>
+              <SecondaryButton label="Cancel" onPress={() => setShowManual(false)} />
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function ListBody({ records, onScan, onUpload }: { records: ReturnType<typeof useExpenseScanner>['records']; onScan: () => void; onUpload: () => void }) {
+function NudgeBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  return (
+    <View style={styles.nudge}>
+      <Text style={styles.nudgeText}>{message}</Text>
+      <Pressable onPress={onDismiss} accessibilityRole="button" accessibilityLabel="Dismiss" hitSlop={8}>
+        <Text style={styles.nudgeDismiss}>✕</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function InsightsCard({ records }: { records: ReturnType<typeof useExpenseScanner>['records'] }) {
+  const summary = useMemo(() => buildMonthlySummary(records), [records]);
+  if (summary.totalThisMonth <= 0) return null;
+  const top = summary.byCategory[0];
+  const trend =
+    summary.deltaPct == null ? null
+      : summary.deltaVsLastMonth > 0 ? C.insightsUp(`$${summary.deltaVsLastMonth.toFixed(0)}`)
+      : summary.deltaVsLastMonth < 0 ? C.insightsDown(`$${Math.abs(summary.deltaVsLastMonth).toFixed(0)}`)
+      : C.insightsFlat;
+
+  return (
+    <View style={styles.insightsCard}>
+      <Text style={styles.insightsTitle}>{C.insightsTitle}</Text>
+      <Text style={styles.insightsTotal}>${summary.totalThisMonth.toFixed(2)}</Text>
+      {top && <Text style={styles.insightsLine}>{C.insightsTopCategory(top.category, top.pct)}</Text>}
+      {trend && <Text style={styles.insightsLine}>{trend}</Text>}
+      {summary.usualMonthlyAverage > 0 && (
+        <Text style={styles.insightsLine}>
+          {C.insightsProjection(`$${summary.projectedTotal.toFixed(0)}`, `$${summary.usualMonthlyAverage.toFixed(0)}`)}
+        </Text>
+      )}
+    </View>
+  );
+}
+
+function ListBody({ records, nudge, onDismissNudge, onScan, onUpload, onManual }: {
+  records: ReturnType<typeof useExpenseScanner>['records'];
+  nudge: ReturnType<typeof useExpenseScanner>['nudge'];
+  onDismissNudge: () => void;
+  onScan: () => void;
+  onUpload: () => void;
+  onManual: () => void;
+}) {
   const total = useMemo(() => records.reduce((a, r) => a + r.amount, 0), [records]);
   return (
     <View>
       <Text style={styles.title} accessibilityRole="header">{C.title}</Text>
       {records.length > 0 && <Text style={styles.subtle}>{C.totalThisList(`$${total.toFixed(2)}`)}</Text>}
 
+      {nudge && <NudgeBanner message={nudge.message} onDismiss={onDismissNudge} />}
+      <InsightsCard records={records} />
+
       <View style={styles.ctaGap}><PrimaryButton label={C.scanCta} onPress={onScan} /></View>
       <View style={styles.uploadGap}><SecondaryButton label="Upload PDF or image" onPress={onUpload} /></View>
+      <View style={styles.uploadGap}><SecondaryButton label={C.enterManually} onPress={onManual} /></View>
 
       {records.length === 0 ? (
         <Text style={styles.empty}>{C.empty}</Text>
@@ -77,7 +158,7 @@ function ListBody({ records, onScan, onUpload }: { records: ReturnType<typeof us
             <View key={r.id} style={[styles.row, i > 0 && styles.rowBorder]}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.rowMerchant}>{r.merchant}</Text>
-                <Text style={styles.rowMeta}>{r.category}{r.dateISO ? ` · ${r.dateISO}` : ''}</Text>
+                <Text style={styles.rowMeta}>{r.category}{r.dateISO ? ` · ${r.dateISO}` : ''}{r.manualEntry ? ` · ${C.enterManually.toLowerCase()}` : ''}</Text>
               </View>
               <Text style={styles.rowAmount}>{moneyLabel({ amount: r.amount, currency: r.currency, currencyAssumed: false })}</Text>
             </View>
@@ -176,6 +257,26 @@ const styles = StyleSheet.create({
   chipOn: { backgroundColor: color.accent, borderColor: color.accent },
   chipText: { ...type.subtext, color: color.textSecondary },
   chipTextOn: { color: color.onAccent, fontWeight: '600' },
+  nudge: {
+    marginTop: space[5], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: space[3], backgroundColor: color.surface, borderRadius: radii.lg, borderWidth: 1,
+    borderColor: color.accent, padding: space[4],
+  },
+  nudgeText: { ...type.subtext, color: color.textPrimary, flex: 1 },
+  nudgeDismiss: { ...type.body, color: color.textSecondary },
+  insightsCard: {
+    marginTop: space[5], backgroundColor: color.surface, borderRadius: radii.lg,
+    borderWidth: 1, borderColor: color.border, padding: space[4],
+  },
+  insightsTitle: { ...type.caption, color: color.textSecondary },
+  insightsTotal: { ...type.h1, color: color.textPrimary, marginTop: space[1] },
+  insightsLine: { ...type.subtext, color: color.textSecondary, marginTop: space[2] },
+  manualBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  manualSheet: {
+    backgroundColor: color.background, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl,
+    padding: layout.screenPaddingH, paddingBottom: space[7],
+  },
+  manualCancelGap: { marginTop: space[3] },
 });
 
 export default ExpenseScreen;

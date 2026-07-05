@@ -39,4 +39,10 @@ export type EnergyForecast = {
   /** True until enough days collected (cold-start). */
   calibrating: boolean;
   daysCollected: number;
+  /**
+   * True once the on-device calibration layer (contract §5, energyCalibration.ts) has
+   * at least one check-in to learn from and its bias has been applied to `points`.
+   * Not model retraining — see energyCalibration.ts for why.
+   */
+  personalized: boolean;
 };

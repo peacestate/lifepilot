@@ -3,8 +3,8 @@
 Overwhelm Manager — 20-task evaluation harness.
 
 Validates the model against the contract (docs/overwhelm-model-contract.md):
-  - step count is 5-10 after parsing
-  - output is a clean bullet list ("- step" lines, imperative)
+  - step count is 5-8 after parsing (v2, 2026-07-06 — was 5-10)
+  - output is a clean numbered/bulleted list (STEP_LINE_RE accepts either)
   - latency (per-task wall time, p50/p95)
 and writes a filled-in report from REPORT_TEMPLATE.md.
 
@@ -26,12 +26,9 @@ import argparse, json, os, re, statistics, sys, time
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 SYSTEM = (
-    "You are a calm assistant that helps an overwhelmed person take action. First, "
-    'output exactly one line "Topic: <a short 1-2 word category>" (e.g. "Topic: '
-    "Cleaning\"). Then break the user's situation into 5 to 10 small, concrete, "
-    "single-action steps. Each step must start with a verb and be doable in a few "
-    'minutes. Output the steps as a markdown bullet list using "- ", one step per '
-    "line, right after the Topic line. No other intro text, no numbering."
+    "You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable "
+    "micro-steps. Each step must be completable in under 30 minutes. Be specific, "
+    "not vague. Output a numbered list only. No intro text. No explanation."
 )
 
 # Decoding params (contract §3 / §5) — low temperature for format stability.
@@ -67,7 +64,7 @@ def score(user_input: str, raw: str):
     return {
         "input": user_input,
         "n_steps": n,
-        "count_ok": 5 <= n <= 10,
+        "count_ok": 5 <= n <= 8,
         "format_ok": n > 0 and all(STEP_LINE_RE.match("- " + s) for s in steps),
         "refusal": refusal,
         "verb_start_ratio": round(starts_with_verb, 2),

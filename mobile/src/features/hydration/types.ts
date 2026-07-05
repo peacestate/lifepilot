@@ -22,7 +22,7 @@ export type HydrationInputs = {
 export type ConfidenceWord = 'high' | 'medium' | 'low';
 
 export type BreakdownItem = {
-  key: 'baseline' | 'heat' | 'activity' | 'airQuality' | 'safetyClamp';
+  key: 'baseline' | 'heat' | 'activity' | 'airQuality' | 'safetyClamp' | 'personalBias';
   label: string;
   amountMl: number;            // signed; the items sum EXACTLY to targetMl
   confidence: ConfidenceWord;
@@ -43,6 +43,8 @@ export type HydrationTarget = {
   notes: string[];
   /** 'model' = produced by the ExecuTorch .pte; 'engine' = deterministic fallback. */
   basis: 'model' | 'engine';
+  /** Present once 3+ days of logged history let hydrationCalibration adjust the target. */
+  personalization?: { rawTargetMl: number; bias: number };
 };
 
 /** The 4 physiology components the model/engine produce (mL). */

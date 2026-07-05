@@ -3,7 +3,9 @@
  *   input · loading · results(+streaming) · error/empty
  *
  * Wiring: this screen is "dumb" — all model work lives in useOverwhelmManager.
- * Checkbox `done` is screen-owned/local (ephemeral, no persistence in v1, §6).
+ * Checkbox `done` (which specific ids are checked) is still screen-owned/local, but the
+ * COUNT (completedSteps/totalSteps) is now mirrored into overwhelmMemory via
+ * mgr.updateProgress() (2026-07-06) so nudges + the weekly insight card have real data.
  * NO network anywhere (the privacy promise is literal).
  *
  * Streaming (contract §5): in the 'generating' phase the step list fills in as
@@ -24,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBlock } from '../components/MessageBlock';
+import { MicButton } from '../components/MicButton';
 import { OverwhelmInput } from '../components/OverwhelmInput';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
@@ -32,7 +35,11 @@ import { SecondaryButton } from '../components/SecondaryButton';
 import { StepList } from '../components/StepList';
 import { StepProgress } from '../components/StepProgress';
 import { TaskSummary } from '../components/TaskSummary';
+import { WeeklyInsightCard } from '../components/WeeklyInsightCard';
+import { computeWeeklyInsight, shouldShowWeeklyCard, type WeeklyInsight } from '../features/overwhelm/overwhelmInsights';
+import { overwhelmMemory } from '../features/overwhelm/overwhelmMemory';
 import { useOverwhelmManager } from '../features/overwhelm/useOverwhelmManager';
+import { useVoiceInput } from '../features/overwhelm/useVoiceInput';
 import { color, layout, space, type } from '../theme/tokens';
 import { COPY } from './overwhelmCopy';
 
@@ -65,6 +72,12 @@ export function OverwhelmManagerScreen({ onOpenHistory }: Props = {}) {
   }, [mgr.breakdowns, checkedIds]);
   const doneCount = steps.filter((s) => s.done).length;
   const allDone = steps.length > 0 && doneCount === steps.length;
+
+  // Mirror checkbox progress into memory (Step 2: completedSteps/totalSteps) so nudges
+  // and the weekly insight card have real data. Only once results actually exist.
+  useEffect(() => {
+    if (steps.length > 0) mgr.updateProgress(doneCount, steps.length);
+  }, [doneCount, steps.length, mgr]);
 
   const modelLoading = mgr.state === 'loading';
 
@@ -215,6 +228,27 @@ function InputBody({
   onOpenHistory?: () => void;
 }) {
   const canSubmit = text.trim().length > 0 && !modelLoading;
+  const voice = useVoiceInput();
+  const [weeklyInsight, setWeeklyInsight] = useState<WeeklyInsight | null>(null);
+
+  useEffect(() => {
+    if (!shouldShowWeeklyCard()) return;
+    overwhelmMemory.list().then((entries) => setWeeklyInsight(computeWeeklyInsight(entries)));
+  }, []);
+
+  const onMicPress = async () => {
+    if (voice.state === 'recording') {
+      const transcript = await voice.stopRecording();
+      if (transcript) {
+        setText(text.trim() ? `${text.trim()} ${transcript}` : transcript);
+      }
+      return;
+    }
+    if (voice.state === 'idle') {
+      void voice.startRecording();
+    }
+  };
+
   return (
     <View>
       <View style={styles.headerRow}>
@@ -233,12 +267,26 @@ function InputBody({
         {COPY.subtext}
       </Text>
 
+      {weeklyInsight && (
+        <View style={styles.weeklyGap}>
+          <WeeklyInsightCard insight={weeklyInsight} />
+        </View>
+      )}
+
       <View style={styles.inputGap}>
         <OverwhelmInput
           value={text}
           onChangeText={setText}
           placeholder={COPY.placeholder}
         />
+        <View style={styles.micRow}>
+          <MicButton state={voice.state} onPress={onMicPress} />
+        </View>
+        {voice.error && (
+          <Text style={styles.voiceErrorLine} maxFontSizeMultiplier={1.6}>
+            {voice.error.message}
+          </Text>
+        )}
       </View>
 
       <View style={styles.ctaGap}>
@@ -385,7 +433,15 @@ const styles = StyleSheet.create({
     color: color.textSecondary,
     marginTop: space[3],
   },
+  weeklyGap: { marginTop: space[5] },
   inputGap: { marginTop: space[5] },
+  micRow: { alignItems: 'flex-end', marginTop: space[2] },
+  voiceErrorLine: {
+    ...type.caption,
+    color: color.error,
+    textAlign: 'right',
+    marginTop: space[1],
+  },
   ctaGap: { marginTop: space[5] },
   prepLine: {
     ...type.caption,

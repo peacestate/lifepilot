@@ -28,4 +28,13 @@ export const HYDRATION_COPY = {
   disclaimer: 'A gentle estimate for healthy adults — not medical advice.',
   // states
   settingUp: 'Setting up your day…',
+  // personalization (bias from logged history — hydrationCalibration.ts)
+  adjustedFrom: (raw: string) => `Adjusted from ${raw} based on your patterns`,
+  // scheduled check-ins (hydrationReminder.ts)
+  reminderDismiss: 'Dismiss',
+  // Monday weekly insight card (hydrationCalibration.ts)
+  weeklyTitle: 'Last week',
+  weeklyHit: (hit: number, total: number) => `Hit your target ${hit} out of ${total} days`,
+  weeklyAvg: (avg: string, target: string) => `Your average was ${avg} vs ${target} target`,
+  weeklyBestWorst: (best: string, worst: string) => `You drink most on ${best}, least on ${worst}`,
 } as const;

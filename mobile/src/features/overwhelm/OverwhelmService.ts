@@ -20,14 +20,16 @@ import type { MemoryEntry } from './overwhelmMemory';
  * System prompt — single source of truth for output format & count.
  * MUST stay byte-identical to SYSTEM in ml/test/overwhelm_eval.py and to
  * model-contract §3, or on-device output drifts from the eval report.
+ *
+ * v2 (2026-07-06): life-coach framing, 5-8 steps (was 5-10), "under 30 minutes"
+ * specificity, numbered-list-only output. The "Topic:" line is GONE — category is
+ * now a separate categorize() call (below) instead of piggybacking on this generation,
+ * so a small/quantized model doesn't have to juggle two output contracts in one shot.
  * ------------------------------------------------------------------ */
 export const SYSTEM_PROMPT =
-  'You are a calm assistant that helps an overwhelmed person take action. First, ' +
-  'output exactly one line "Topic: <a short 1-2 word category>" (e.g. "Topic: ' +
-  "Cleaning\"). Then break the user's situation into 5 to 10 small, concrete, " +
-  'single-action steps. Each step must start with a verb and be doable in a few ' +
-  'minutes. Output the steps as a markdown bullet list using "- ", one step per ' +
-  'line, right after the Topic line. No other intro text, no numbering.';
+  'You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable ' +
+  'micro-steps. Each step must be completable in under 30 minutes. Be specific, not ' +
+  'vague. Output a numbered list only. No intro text. No explanation.';
 
 /* ------------------------------------------------------------------ *
  * Sub-step prompt — for the "tap a step to break it down further" feature.
@@ -36,13 +38,37 @@ export const SYSTEM_PROMPT =
  * unchanged. Owned mobile-side like the main prompt (model-contract §3).
  * ------------------------------------------------------------------ */
 export const SUBSTEP_SYSTEM_PROMPT =
-  'You are a calm assistant. The user gives you ONE step they find tricky. Break ' +
-  'just that single step into 3 to 5 even smaller actions, each doable in a ' +
-  'minute or two. Each action must start with a verb. Output ONLY a markdown ' +
-  'bullet list using "- ", one action per line. No intro, no numbering, no extra text.';
+  'You are a calm, practical life coach. The user gives you ONE step they find ' +
+  'tricky, plus the overall task it belongs to for context. Break just that single ' +
+  'step into 3 to 4 even smaller actions, each doable in a minute or two. Output a ' +
+  'numbered list only. No intro text. No explanation.';
 
 /** Upper bound on sub-steps shown under a parent (calm; avoids re-overwhelming). */
 export const SUB_MAX_STEPS = 6;
+
+/* ------------------------------------------------------------------ *
+ * Categorization — a SEPARATE, tiny second call after the main breakdown succeeds.
+ * Fixed 7-bucket taxonomy (not freeform, unlike the old "Topic:" line) so it's usable
+ * for filtering/insights (weekly insight card, Past Tasks grouping) without needing to
+ * normalize arbitrary model-generated labels.
+ * ------------------------------------------------------------------ */
+export const CATEGORIES = ['work', 'health', 'home', 'learning', 'finance', 'personal', 'social'] as const;
+export type Category = (typeof CATEGORIES)[number];
+const DEFAULT_CATEGORY: Category = 'personal';
+
+export const CATEGORIZE_SYSTEM_PROMPT =
+  `Classify the user's task into exactly ONE of these categories: ${CATEGORIES.join(', ')}. ` +
+  'Output ONLY the single category word, lowercase, nothing else. No explanation.';
+
+export function categorizeUser(taskText: string): string {
+  return `Task: "${taskText}"`;
+}
+
+/** Parse the categorize() call's raw output into one of the fixed CATEGORIES, defaulting on any miss. */
+export function parseCategory(raw: string): Category {
+  const cleaned = raw.trim().toLowerCase().replace(/[^a-z]/g, '');
+  return (CATEGORIES as readonly string[]).includes(cleaned) ? (cleaned as Category) : DEFAULT_CATEGORY;
+}
 
 /**
  * Build an enriched system message that injects similar past tasks as few-shot
@@ -58,7 +84,7 @@ export function buildContextualPrompt(pastExamples: MemoryEntry[]): string {
     .slice(0, 3)
     .map((e, i) => {
       const steps = e.steps.slice(0, 5).map((s) => `- ${s}`).join('\n');
-      return `Example ${i + 1}:\nTask: "${e.task}"\nSteps:\n${steps}`;
+      return `Example ${i + 1}:\nTask: "${e.taskText}"\nSteps:\n${steps}`;
     })
     .join('\n\n');
   return (

@@ -6,9 +6,17 @@
  * components [baseline, heat, activity, aqi]. The device sums + clamps + builds the
  * breakdown in HydrationEngine.buildTarget (shared with the formula fallback).
  *
- * PRIVACY: imports zero networking. The model is bundled (tiny, <50 KB) and loaded
- * locally. If anything fails (model missing pre-export, runtime mismatch), this returns
- * null and the caller falls back to the deterministic engine — so the app ALWAYS works.
+ * PRIVACY: imports zero networking. Loaded from a local file:// path only. If anything
+ * fails (model missing pre-export, runtime mismatch), this returns null and the caller
+ * falls back to the deterministic engine — so the app ALWAYS works.
+ *
+ * The .pte is NOT bundled via Metro's require() — `**\/*.pte` is gitignored repo-wide
+ * (models are provisioned on-device per RUNBOOK.md, never committed), so a static
+ * require() only resolves on a machine that happens to have the file locally (e.g.
+ * this dev's PC) and silently produces an unresolvable module reference on a clean
+ * EAS cloud build, crashing the app on boot with "Requiring unknown module". Load by
+ * file:// path instead, same pattern as modelProvisioner.ts (Llama) and
+ * voiceModelProvisioner.ts (Whisper).
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * API ASSUMPTIONS (verify against pinned react-native-executorch@0.4.8 — same as
@@ -18,6 +26,8 @@
  * If 0.4.8's exact API differs, this is a one-spot change (and the fallback covers it).
  * ─────────────────────────────────────────────────────────────────────────────
  */
+
+import * as FileSystem from 'expo-file-system';
 
 import type { Components, HydrationInputs } from './types';
 import manifest from '../../models/hydration/manifest.json';
@@ -59,10 +69,11 @@ async function getModule(): Promise<GenericModule | null> {
         const rne: any = require('react-native-executorch');
         const loader = rne.loadModule ?? rne.ExecutorchModule?.load ?? null;
         if (!loader) return null;
-        // A .pte path resolved from the bundled asset (provisioning identical to Energy).
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const source = require('../../models/hydration/hydration_predictor.pte');
-        return await loader(source);
+        const uri = `${FileSystem.documentDirectory}models/hydration/${manifest.pte_filename}`;
+        const info = await FileSystem.getInfoAsync(uri, { size: true });
+        if (!info.exists) return null; // not provisioned yet → engine fallback
+        if (manifest.bytes && info.size && info.size !== manifest.bytes) return null; // corrupt/partial push
+        return await loader(uri);
       } catch {
         return null; // model not present yet / runtime mismatch → engine fallback
       }

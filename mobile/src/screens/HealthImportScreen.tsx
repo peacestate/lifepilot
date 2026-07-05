@@ -190,7 +190,7 @@ export function HealthImportScreen({ onBack }: Props) {
             <View style={styles.center}>
               <Text style={styles.glyphLarge}>◉</Text>
               <Text style={styles.savedTitle} maxFontSizeMultiplier={1.4}>Saved to your history</Text>
-              <Text style={styles.dim}>Energy and Hydration features will use this data.</Text>
+              <Text style={styles.dim}>Health document storage — integration coming soon.</Text>
               <View style={{ height: space[5] }} />
               <PrimaryButton label="Import another" onPress={reset} />
             </View>

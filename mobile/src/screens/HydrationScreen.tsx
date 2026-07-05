@@ -7,10 +7,11 @@
  * the on-device ExecuTorch model (falling back to the deterministic engine offline).
  * NO network here; weather (opt-in only) is isolated in the feature's weatherSource.
  */
-import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CustomAmountModal } from '../components/CustomAmountModal';
 import { HydrationRing } from '../components/HydrationRing';
 import { IntakeQuickAdd } from '../components/IntakeQuickAdd';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
@@ -23,6 +24,7 @@ import { HYDRATION_COPY as C } from './hydrationCopy';
 export function HydrationScreen() {
   const h = useHydrationTracker();
   const units = h.profile.units;
+  const [customOpen, setCustomOpen] = useState(false);
 
   const fmt = useMemo(() => {
     return (ml: number) => {
@@ -55,12 +57,23 @@ export function HydrationScreen() {
   const headline = hazy && hot ? C.whyHotHazy : hot ? C.whyHot : active ? C.whyActive : C.whyMild;
 
   const remaining = Math.max(0, t.targetMl - h.loggedMl);
+  const today = new Date();
+  const showWeekly = today.getDay() === 1 && !!h.weeklyInsight; // Monday only
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
           <Text style={styles.title} accessibilityRole="header">{C.title}</Text>
+
+          {h.reminder && (
+            <View style={styles.reminderCard}>
+              <Text style={styles.reminderText}>{h.reminder.message}</Text>
+              <Pressable onPress={h.dismissReminder} hitSlop={8} accessibilityRole="button">
+                <Text style={styles.reminderDismiss}>{C.reminderDismiss}</Text>
+              </Pressable>
+            </View>
+          )}
 
           <View style={styles.ringWrap}>
             <HydrationRing
@@ -69,6 +82,12 @@ export function HydrationScreen() {
               centerSub={`of ${fmt(t.targetMl)}`}
             />
           </View>
+
+          {t.personalization && (
+            <Text style={styles.adjustedNote} maxFontSizeMultiplier={1.6}>
+              {C.adjustedFrom(fmt(t.personalization.rawTargetMl))}
+            </Text>
+          )}
 
           {/* status + progress text (also the screen-reader summary for the ring) */}
           <Text
@@ -87,12 +106,29 @@ export function HydrationScreen() {
             <WhyTodayPanel headline={headline} breakdown={t.breakdown} formatMl={fmt} />
           </View>
 
+          {showWeekly && h.weeklyInsight && (
+            <View style={styles.gap}>
+              <View style={styles.weeklyCard}>
+                <Text style={styles.weeklyTitle}>{C.weeklyTitle}</Text>
+                <Text style={styles.weeklyLine}>
+                  {C.weeklyHit(h.weeklyInsight.daysHit, h.weeklyInsight.daysTotal)}
+                </Text>
+                <Text style={styles.weeklyLine}>
+                  {C.weeklyAvg(fmt(h.weeklyInsight.avgActualMl), fmt(h.weeklyInsight.avgTargetMl))}
+                </Text>
+                <Text style={styles.weeklyLine}>
+                  {C.weeklyBestWorst(h.weeklyInsight.bestDayLabel, h.weeklyInsight.worstDayLabel)}
+                </Text>
+              </View>
+            </View>
+          )}
+
           <View style={styles.gap}>
             <IntakeQuickAdd
               servingMl={t.servingMl}
               formatMl={fmt}
               onAdd={(ml) => h.addIntake(ml)}
-              onCustom={() => h.addIntake(t.servingMl) /* TODO: custom-amount sheet */}
+              onCustom={() => setCustomOpen(true)}
             />
           </View>
 
@@ -102,6 +138,16 @@ export function HydrationScreen() {
           />
         </View>
       </ScrollView>
+
+      <CustomAmountModal
+        visible={customOpen}
+        units={units}
+        onCancel={() => setCustomOpen(false)}
+        onConfirm={(ml) => {
+          h.addIntake(ml);
+          setCustomOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -121,6 +167,19 @@ const styles = StyleSheet.create({
   },
   gap: { marginTop: space[5] },
   disclaimer: { ...type.caption, color: color.textTertiary, textAlign: 'center', marginTop: space[6] },
+  adjustedNote: { ...type.caption, color: color.textSecondary, textAlign: 'center', marginTop: -space[2] },
+  reminderCard: {
+    marginTop: space[4], backgroundColor: color.surfaceAlt, borderRadius: radii.lg,
+    padding: space[4], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3],
+  },
+  reminderText: { ...type.body, color: color.textPrimary, flex: 1 },
+  reminderDismiss: { ...type.caption, color: color.accent, fontWeight: '600' as const },
+  weeklyCard: {
+    backgroundColor: color.surface, borderRadius: radii.lg, borderWidth: 1,
+    borderColor: color.border, padding: space[4],
+  },
+  weeklyTitle: { ...type.captionStrong, color: color.accent, marginBottom: space[2] },
+  weeklyLine: { ...type.body, color: color.textPrimary, marginTop: space[1] },
 });
 
 export default HydrationScreen;

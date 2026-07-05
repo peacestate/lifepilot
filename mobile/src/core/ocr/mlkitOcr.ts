@@ -27,13 +27,13 @@ type MlkitOcrModule = {
 
 type MlkitBlock = {
   text: string;
-  bounding: { top: number; left: number; bottom: number; right: number };
+  bounding: { top: number; left: number; height: number; width: number };
   lines: MlkitLine[];
 };
 
 type MlkitLine = {
   text: string;
-  bounding: { top: number; left: number; bottom: number; right: number };
+  bounding: { top: number; left: number; height: number; width: number };
 };
 
 let _mlkit: MlkitOcrModule['default'] | null = null;
@@ -99,7 +99,7 @@ function blocksToOcrResult(blocks: MlkitBlock[]): OcrResult {
   for (const block of blocks) {
     for (const line of block.lines) {
       if (!line.text.trim()) continue;
-      const h = line.bounding.bottom - line.bounding.top;
+      const h = line.bounding.height;
       lines.push({
         text: line.text.trim(),
         y: line.bounding.top,

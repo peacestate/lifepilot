@@ -88,6 +88,7 @@ export function deriveForecast(
   points: number[],
   daysCollected: number,
   basis: 'model' | 'heuristic',
+  personalized = false,
 ): EnergyForecast {
   // peak over waking hours
   let peakH = 6, dipH = 14;
@@ -114,6 +115,7 @@ export function deriveForecast(
     basis,
     calibrating: daysCollected < MIN_DAYS,
     daysCollected,
+    personalized,
   };
 }
 

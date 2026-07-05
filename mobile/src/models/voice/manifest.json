@@ -1,0 +1,32 @@
+{
+  "_comment": "Describes the bundled Whisper tiny.en speech-to-text model files (voice input for Overwhelm Manager). Same provisioning pattern as overwhelm/manifest.json — owner fills sha256 + bytes after downloading. DO NOT leave encoderSource/decoderSource/tokenizerSource unset in useSpeechToText: the library defaults to fetching these from the network at runtime (source field below), which breaks the zero-network guarantee. Always pass local file:// sources from voiceModelProvisioner.ts.",
+  "name": "voice-input-whisper-tiny-en",
+  "version": "1.0.0",
+  "source": "software-mansion/react-native-executorch-whisper-tiny.en",
+  "hf_revision": "v0.4.0",
+  "react_native_executorch": "0.4.10",
+  "executorch_version": "0.6.0",
+  "backend": "XNNPACK",
+  "sampleRate": 16000,
+  "modelName": "whisper",
+  "files": {
+    "encoder": "whisper_tiny_en_xnnpack_encoder.pte",
+    "decoder": "whisper_tiny_en_xnnpack_decoder.pte",
+    "tokenizer": "whisper_tokenizer.json"
+  },
+  "hf_paths": {
+    "encoder": "xnnpack/whisper_tiny_en_xnnpack_encoder.pte",
+    "decoder": "xnnpack/whisper_tiny_en_xnnpack_decoder.pte",
+    "tokenizer": "whisper_tokenizer.json"
+  },
+  "sha256": {
+    "encoder": "ff2152d04822c62d413904d949bd6ef5319f832317c6e815da6c8f243a9724e7",
+    "decoder": "2fe30190275adc22dc168e33b7bbf2e8a9ca1c1b7c337c2c04271fc7c949b4dc",
+    "tokenizer": "e7d0b23224abf46b5bb8f0b81cb22928c585fea7a5de2e5870ad7a163c247bfc"
+  },
+  "bytes": {
+    "encoder": 33003696,
+    "decoder": 198020448,
+    "tokenizer": 2405680
+  }
+}

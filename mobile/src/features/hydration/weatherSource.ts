@@ -5,13 +5,17 @@
  * Mode A 'offline' (DEFAULT): conditions come from the user's home-climate setting or a
  *   manual entry. ZERO network — nothing about the user leaves the device, not even a
  *   coarse area.
- * Mode B 'live' (opt-in only): fetch coarse-area weather/AQI. The request carries NO
- *   identity, NO precise location, NO health/intake data — only a grid-rounded lat/lon.
+ * Mode B 'live' (opt-in only): fetch coarse-area weather/AQI, AT MOST ONCE PER CALENDAR
+ *   DAY (weatherCache.ts) — every other call this same day (a screen re-mount, a profile
+ *   edit, anything that triggers a recompute) reads the cache instead, zero network. The
+ *   request itself carries NO identity, NO precise location, NO health/intake data — only
+ *   a grid-rounded lat/lon, and now only once a day instead of on every recompute.
  *
  * This is the single file the feature's ESLint network-ban allowlists. Everything else
  * under features/hydration/** must stay network-free.
  */
 
+import { getCachedToday, getLastKnown, saveToCache } from './weatherCache';
 import type { WeatherConditions, WeatherMode, HydrationProfile } from './types';
 
 /** Round to a ~11 km grid BEFORE any request — the real privacy lever (contract §12). */
@@ -20,7 +24,8 @@ const coarse = (x: number) => Math.round(x * 10) / 10;
 /**
  * Resolve today's conditions for the given mode.
  * - 'offline': returns the profile's homeClimate (or undefined → engine assumes mild).
- * - 'live': fetches Open-Meteo for a coarse cell. `getCoarseLocation` is injected so the
+ * - 'live': today's cache if already fetched (zero network); otherwise fetches Open-Meteo
+ *   for a coarse cell ONCE and caches it. `getCoarseLocation` is injected so the
  *   permission/location concern stays out of this module; pass undefined to skip.
  */
 export async function getConditions(
@@ -34,10 +39,18 @@ export async function getConditions(
       : undefined; // engine falls back to assumed-mild conditions
   }
 
-  // ── Mode B: opt-in live weather (the one sanctioned egress) ──
+  // ── Mode B: opt-in live weather (the one sanctioned egress) — cached once per day ──
+  const cached = await getCachedToday();
+  if (cached) return cached; // already fetched today — zero network
+
   try {
     const loc = getCoarseLocation ? await getCoarseLocation() : null;
-    if (!loc) return profile.homeClimate; // no location → fall back, still no network leak
+    if (!loc) {
+      // No location → fall back to the last successful fetch (any day), then homeClimate.
+      // Still zero network either way.
+      const lastKnown = await getLastKnown();
+      return lastKnown ? { ...lastKnown, source: 'last-known' } : profile.homeClimate;
+    }
     const lat = coarse(loc.lat);
     const lon = coarse(loc.lon);
 
@@ -51,14 +64,21 @@ export async function getConditions(
         `&current=us_aqi`,
     ).then((r) => r.json());
 
-    return {
+    const conditions: WeatherConditions = {
       temperatureC: wx?.current?.temperature_2m,
       humidityPct: wx?.current?.relative_humidity_2m,
       aqi: aq?.current?.us_aqi,
       source: 'live',
     };
+    await saveToCache(conditions);
+    return conditions;
   } catch {
-    return profile.homeClimate
+    // Fetch failed (offline, timeout, etc.) — use the last successful fetch, not just
+    // homeClimate, so a real reading (even stale) beats a generic assumption when one exists.
+    const lastKnown = await getLastKnown();
+    return lastKnown
+      ? { ...lastKnown, source: 'last-known' }
+      : profile.homeClimate
       ? { ...profile.homeClimate, source: 'last-known' }
       : undefined;
   }

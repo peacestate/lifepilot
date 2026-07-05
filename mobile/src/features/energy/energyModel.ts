@@ -3,9 +3,20 @@
  * Numeric module (like Hydration): input [1,12,7] normalized → output [1,24] curve 0..100.
  * Returns null on any failure → the hook falls back to EnergyForecast.heuristicCurve.
  *
- * PRIVACY: zero networking. Bundled/registry-provisioned local model only.
+ * PRIVACY: zero networking. Loaded from a local file:// path only.
  * The forward() call site is isolated (verify against react-native-executorch@0.4.8).
+ *
+ * The .pte is NOT bundled via Metro's require() — `**\/*.pte` is gitignored repo-wide
+ * (models are provisioned on-device per RUNBOOK.md, never committed), so a static
+ * require() only resolves on a machine that happens to have the file locally (e.g.
+ * this dev's PC) and silently produces an unresolvable module reference on a clean
+ * EAS cloud build, crashing the app on boot with "Requiring unknown module". Load by
+ * file:// path instead, same pattern as modelProvisioner.ts (Llama) and
+ * voiceModelProvisioner.ts (Whisper).
  */
+import * as FileSystem from 'expo-file-system';
+
+import manifest from '../../models/energy/manifest.json';
 
 let modulePromise: Promise<{ forward: (i: unknown[]) => Promise<Array<{ dataPtr: Float32Array | number[] }>> } | null> | null = null;
 
@@ -17,9 +28,11 @@ async function getModule() {
         const rne: any = require('react-native-executorch');
         const loader = rne.loadModule ?? rne.ExecutorchModule?.load ?? null;
         if (!loader) return null;
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const source = require('../../models/energy/energy_predictor.pte');
-        return await loader(source);
+        const uri = `${FileSystem.documentDirectory}models/energy/${manifest.pte_filename}`;
+        const info = await FileSystem.getInfoAsync(uri, { size: true });
+        if (!info.exists) return null; // not provisioned yet → heuristic fallback
+        if (manifest.bytes && info.size && info.size !== manifest.bytes) return null; // corrupt/partial push
+        return await loader(uri);
       } catch {
         return null; // not exported yet / runtime mismatch → heuristic fallback
       }

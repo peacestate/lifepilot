@@ -43,26 +43,26 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// eslint-disable-next-line import/no-unresolved -- added during native setup
-import { useLLM } from 'react-native-executorch';
 
+import { useSharedLlm } from '../../core/llm/LlamaProvider';
 import {
   buildResult,
   buildContextualPrompt,
+  categorizeUser,
   evaluateQuality,
   completedPortion,
+  parseCategory,
   parseSteps,
-  parseTopic,
   toSteps,
   toSubSteps,
   subStepUser,
+  CATEGORIZE_SYSTEM_PROMPT,
   DECODING,
   STOP_TOKEN_ID,
   SUB_MAX_STEPS,
   SUBSTEP_SYSTEM_PROMPT,
 } from './OverwhelmService';
 import { overwhelmMemory } from './overwhelmMemory';
-import { provisionModel, type ModelSources } from './modelProvisioner';
 import { isPowerConstrained } from '../../core/power/powerAwareness';
 import { nudgeOverwhelmStep } from '../../core/nudges/featureNudges';
 import type {
@@ -91,9 +91,17 @@ const toSubMessages = (stepText: string, goal: string): ChatMessage[] => [
   { role: 'user', content: subStepUser(stepText, goal) },
 ];
 
-// 'subrun' = generating sub-steps for a single step; intentionally kept distinct
-// from 'run' so the screen stays on the results list (sub-loading is inline).
-type Phase = 'idle' | 'warmup' | 'run' | 'subrun';
+/** Messages for the separate category-classification call (OverwhelmService §categorize). */
+const toCategorizeMessages = (taskText: string): ChatMessage[] => [
+  { role: 'system', content: CATEGORIZE_SYSTEM_PROMPT },
+  { role: 'user', content: categorizeUser(taskText) },
+];
+
+// 'subrun' = generating sub-steps for a single step; 'categorizing' = the invisible
+// post-run classification call. Both kept distinct from 'run' so the screen stays on
+// the results list (neither re-triggers the full-screen "generating" state) but STILL
+// count as "busy" for the unmount-interrupt guard below (only 'idle' skips it).
+type Phase = 'idle' | 'warmup' | 'run' | 'subrun' | 'categorizing';
 
 export type UseOverwhelmManager = {
   /** 'loading' | 'ready' | 'generating' | 'error' */
@@ -122,37 +130,16 @@ export type UseOverwhelmManager = {
   breakDown: (stepId: string, stepText: string) => Promise<void>;
   /** Read a step aloud (user-triggered) through the shared nudge bus → glasses/notifications. */
   speakStep: (text: string) => void;
+  /** Persist checkbox completion for the current task (call whenever checkedIds changes). */
+  updateProgress: (completedSteps: number, totalSteps: number) => void;
 };
 
 export function useOverwhelmManager(): UseOverwhelmManager {
-  // --- model sources (first-run provision, no network) ---------------------
-  const [sources, setSources] = useState<ModelSources | null>(null);
-  const [provisionError, setProvisionError] = useState<OverwhelmError | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    provisionModel()
-      .then((s) => alive && setSources(s))
-      .catch((e: unknown) =>
-        alive &&
-        setProvisionError({
-          kind: 'model_load',
-          message: e instanceof Error ? e.message : 'Could not prepare the model.',
-        }),
-      );
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // --- the library hook (single LLM instance app-wide) ---------------------
-  // A1/A4: sources may be null on first render; the library begins loading once
-  // a valid file:// source is provided. Verify null-tolerance on the pinned ver.
-  const llm = useLLM({
-    modelSource: sources?.modelSource,
-    tokenizerSource: sources?.tokenizerSource,
-    tokenizerConfigSource: sources?.tokenizerConfigSource,
-  } as never);
+  // --- the shared LLM instance (LlamaProvider, mounted once at the app root) -----
+  // Provisioning + the single useLLM() call now live in LlamaProvider so Expense
+  // Scanner's intelligent-parsing pass can share this exact instance instead of
+  // loading a second ~1.18GB model. This hook just consumes it.
+  const llm = useSharedLlm();
 
   // --- local generation state ---------------------------------------------
   const [steps, setSteps] = useState<OverwhelmStep[]>([]);
@@ -165,6 +152,8 @@ export function useOverwhelmManager(): UseOverwhelmManager {
   const phaseRef = useRef<Phase>('idle');
   const responseRef = useRef<string>('');
   const interruptRef = useRef<(() => void) | undefined>(undefined);
+  /** Set by stop() so an in-flight run() doesn't retry/save after being cut short. */
+  const stoppedRef = useRef(false);
   /** Which step id the current 'subrun' is generating sub-steps for. */
   const subTargetRef = useRef<string | null>(null);
 
@@ -192,8 +181,17 @@ export function useOverwhelmManager(): UseOverwhelmManager {
   // ExecuTorch REQUIRES interrupting an in-flight generation before unmount, or
   // the native runtime crashes the app (react-native-executorch docs). The
   // Overwhelm screen unmounts on navigate-away, so guard it here.
+  //
+  // CRITICAL: only call interrupt() while a generation is actually in flight.
+  // The native LLM.kt `interrupt()` does `llmModule!!.stop()` with no null
+  // guard — calling it while idle (nothing generating, or the model hasn't
+  // finished loading yet, so `llmModule` is still null) segfaults the whole
+  // app rather than throwing a catchable JS exception, so the try/catch below
+  // cannot save us from a bad call. Mirrors the same phase guard `stop()`
+  // already uses (line ~340).
   useEffect(
     () => () => {
+      if (phaseRef.current === 'idle') return;
       try {
         interruptRef.current?.();
       } catch {
@@ -294,6 +292,7 @@ export function useOverwhelmManager(): UseOverwhelmManager {
       setSteps([]);
       setBreakdowns({});
       responseRef.current = '';
+      stoppedRef.current = false;
       setPhase('run');
       try {
         // Step 1 + 2: retrieve memory → build contextual prompt
@@ -303,6 +302,7 @@ export function useOverwhelmManager(): UseOverwhelmManager {
         // Step 3: generate
         await safeGenerate(llm, toMessages(trimmed, systemPrompt));
         finalize();
+        if (stoppedRef.current) return;
 
         // Step 4: evaluate quality; retry with base prompt if weak
         if (evaluateQuality(responseRef.current) === 'retry') {
@@ -311,12 +311,23 @@ export function useOverwhelmManager(): UseOverwhelmManager {
           setPhase('run');
           await safeGenerate(llm, toMessages(trimmed, buildContextualPrompt([])));
           finalize();
+          if (stoppedRef.current) return;
         }
 
-        // Step 5: save to memory (only if we got usable steps)
+        // Step 5: auto-categorize (separate tiny call) + save to memory (only if usable steps)
         const finalSteps = parseSteps(responseRef.current);
         if (finalSteps.length >= 3) {
-          void overwhelmMemory.save(trimmed, finalSteps, parseTopic(responseRef.current));
+          setPhase('categorizing'); // invisible to the user — results are already shown
+          let category = 'personal';
+          try {
+            await safeGenerate(llm, toCategorizeMessages(trimmed));
+            category = parseCategory(responseRef.current);
+          } catch {
+            // categorization failing is non-fatal — save with the default bucket.
+          } finally {
+            setPhase('idle');
+          }
+          void overwhelmMemory.save(trimmed, finalSteps, category);
         }
       } catch (e) {
         setPhase('idle');
@@ -333,6 +344,7 @@ export function useOverwhelmManager(): UseOverwhelmManager {
   // --- stop (real interrupt) -----------------------------------------------
   const stop = useCallback(() => {
     if (phaseRef.current !== 'run') return;
+    stoppedRef.current = true;
     try {
       llm.interrupt?.();
     } catch {
@@ -370,6 +382,9 @@ export function useOverwhelmManager(): UseOverwhelmManager {
           ...prev,
           [stepId]: { status: subs.length ? 'done' : 'empty', steps: subs },
         }));
+        if (subs.length) {
+          void overwhelmMemory.saveSubSteps(lastInput, stepText, subs.map((s) => s.text));
+        }
       } catch {
         setBreakdowns((prev) => ({
           ...prev,
@@ -384,15 +399,16 @@ export function useOverwhelmManager(): UseOverwhelmManager {
   );
 
   // --- derive the single public state --------------------------------------
+  // llm.error already folds in any provisioning failure (LlamaProvider combines
+  // provisionError ?? the useLLM() error internally) — no separate local state needed.
   const error: OverwhelmError | null = useMemo(() => {
-    if (provisionError) return provisionError;
     if (runError) return runError;
     if (llm.error) {
       const kind = !llm.isReady ? 'model_load' : 'inference';
       return { kind, message: String(llm.error) };
     }
     return null;
-  }, [provisionError, runError, llm.error, llm.isReady]);
+  }, [runError, llm.error, llm.isReady]);
 
   const state: OverwhelmState = useMemo(() => {
     if (error) return 'error';
@@ -411,6 +427,18 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     nudgeOverwhelmStep(text);
   }, []);
 
+  // --- persist checkbox completion (Step 2: completedSteps/totalSteps) -----
+  // The checkbox itself stays screen-owned (OverwhelmScreen's checkedIds) — this just
+  // mirrors the count back into the saved memory entry whenever it changes, so nudges
+  // (overwhelmReminder.ts) and the weekly insight card have real progress data.
+  const updateProgress = useCallback(
+    (completedSteps: number, totalSteps: number) => {
+      if (!lastInput) return;
+      void overwhelmMemory.updateProgress(lastInput, completedSteps, totalSteps);
+    },
+    [lastInput],
+  );
+
   return {
     state,
     steps,
@@ -424,6 +452,7 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     retry,
     breakDown,
     speakStep,
+    updateProgress,
   };
 }
 

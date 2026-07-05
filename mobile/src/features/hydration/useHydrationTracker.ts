@@ -13,8 +13,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { applyCalibration, computeCalibration, computeWeeklyInsight, saveDayRecord } from './hydrationCalibration';
 import { buildTarget, decideNudge, engineComponents } from './HydrationEngine';
 import { predictComponents } from './hydrationModel';
+import { decideReminder } from './hydrationReminder';
+import type { ReminderDecision, ReminderKind } from './hydrationReminder';
 import { hydrationStore } from './hydrationStore';
 import { getConditions } from './weatherSource';
 import { nudgeFromHydration } from '../../core/nudges/featureNudges';
@@ -26,6 +29,7 @@ import type {
   IntakeEntry,
   WeatherConditions,
 } from './types';
+import type { WeeklyInsight } from './hydrationCalibration';
 
 export type UseHydrationTracker = {
   loading: boolean;
@@ -44,6 +48,11 @@ export type UseHydrationTracker = {
   /** Evaluate the nudge rule and publish to the shared bus (→ glasses, etc.). */
   checkNudge: () => void;
   refresh: () => Promise<void>;
+  /** Today's scheduled check-in (morning/midday/evening/completion), if any and not dismissed. */
+  reminder?: ReminderDecision;
+  dismissReminder: () => void;
+  /** Monday-only weekly summary card; undefined until 3+ completed days are logged. */
+  weeklyInsight?: WeeklyInsight;
 };
 
 export function useHydrationTracker(
@@ -54,6 +63,8 @@ export function useHydrationTracker(
   const [target, setTarget] = useState<HydrationTarget | undefined>(undefined);
   const [intake, setIntake] = useState<IntakeEntry[]>(() => hydrationStore.getToday());
   const [loading, setLoading] = useState(true);
+  const [weeklyInsight, setWeeklyInsight] = useState<WeeklyInsight | undefined>(undefined);
+  const [dismissed, setDismissed] = useState<{ kind: ReminderKind; day: string } | undefined>(undefined);
 
   const loggedMl = useMemo(() => intake.reduce((s, e) => s + e.ml, 0), [intake]);
 
@@ -82,10 +93,41 @@ export function useHydrationTracker(
     // (power-aware inference) — same fallback already used when the .pte isn't loaded.
     const { components: engineComp, meta } = engineComponents(inputs);
     const modelComp = (await isPowerConstrained()) ? null : await predictComponents(inputs);
-    const t = modelComp
+    const raw = modelComp
       ? buildTarget(modelComp, inputs, meta, 'model')
       : buildTarget(engineComp, inputs, meta, 'engine');
+
+    // 4) personalization: adjust the frozen model/engine target with the user's own EMA
+    // bias from logged history (hydrationCalibration). No-op below 3 days of history.
+    const calibration = await computeCalibration();
+    const personalizedMl = applyCalibration(raw.targetMl, calibration);
+    const t: HydrationTarget =
+      personalizedMl === raw.targetMl
+        ? raw
+        : {
+            ...raw,
+            targetMl: personalizedMl,
+            // keep the breakdown summing exactly to targetMl (contract §4) by adding the
+            // bias as its own line item, rather than silently overriding the total.
+            breakdown: [
+              ...raw.breakdown,
+              {
+                key: 'personalBias',
+                label: 'Your pattern',
+                amountMl: personalizedMl - raw.targetMl,
+                confidence: 'medium',
+                why:
+                  personalizedMl < raw.targetMl
+                    ? "you've been drinking less than predicted lately"
+                    : "you've been drinking more than predicted lately",
+              },
+            ],
+            personalization: { rawTargetMl: raw.targetMl, bias: calibration.bias },
+          };
     setTarget(t);
+
+    void saveDayRecord(t.targetMl, hydrationStore.loggedMl());
+    setWeeklyInsight(await computeWeeklyInsight());
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity?.activeMinutes, activity?.workoutIntensity, activity?.steps]);
@@ -99,12 +141,14 @@ export function useHydrationTracker(
     const amount = ml ?? target?.servingMl ?? 250;
     hydrationStore.addIntake(amount);
     setIntake([...hydrationStore.getToday()]);
-  }, [target?.servingMl]);
+    if (target) void saveDayRecord(target.targetMl, hydrationStore.loggedMl());
+  }, [target]);
 
   const removeIntake = useCallback((id: string) => {
     hydrationStore.removeIntake(id);
     setIntake([...hydrationStore.getToday()]);
-  }, []);
+    if (target) void saveDayRecord(target.targetMl, hydrationStore.loggedMl());
+  }, [target]);
 
   const updateProfile = useCallback((patch: Partial<HydrationProfile>) => {
     const p = hydrationStore.setProfile(patch);
@@ -137,8 +181,35 @@ export function useHydrationTracker(
     );
   }, [target, loggedMl, profile.wakeHour, profile.bedHour, conditions?.temperatureC]);
 
+  // Step 5's scheduled check-ins (real numbers, in-app only — see hydrationReminder.ts's
+  // header for why these never go through the glasses-safe NudgeCenter bus). Re-evaluated
+  // whenever the target/log changes and on a 5-minute tick so purely time-based
+  // transitions (e.g. crossing 8am with the screen already open) still surface.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 5 * 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const todayKey = (ms: number) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+  };
+
+  const rawReminder = target
+    ? decideReminder(target.targetMl, loggedMl, nowTick, (conditions?.temperatureC ?? 0) >= 28, profile.units)
+    : undefined;
+  const day = todayKey(nowTick);
+  const reminder = rawReminder && dismissed?.kind === rawReminder.kind && dismissed.day === day ? undefined : rawReminder;
+
+  const dismissReminder = useCallback(() => {
+    if (rawReminder) setDismissed({ kind: rawReminder.kind, day });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawReminder, day]);
+
   return {
     loading, profile, conditions, target, loggedMl, intake, progress,
     addIntake, removeIntake, updateProfile, checkNudge, refresh: () => recompute(profile),
+    reminder, dismissReminder, weeklyInsight,
   };
 }

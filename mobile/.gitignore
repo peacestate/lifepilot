@@ -15,6 +15,11 @@ src/models/overwhelm/tokenizer_config.json
 src/models/overwhelm/*.model
 src/models/overwhelm/*.bin
 
+# text-embeddings model (overwhelmMemory.ts semantic search) — same reasoning
+src/models/embeddings/*.pte
+src/models/embeddings/tokenizer.json
+src/models/embeddings/tokenizer_config.json
+
 # misc
 *.log
 .DS_Store

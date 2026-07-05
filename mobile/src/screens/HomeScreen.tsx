@@ -1,8 +1,10 @@
 /**
  * HomeScreen — feature hub. Four cards navigate to each feature; gear opens Settings.
- * Deliberately minimal — no live data, just navigation affordances.
+ * Mostly navigation affordances, plus one cross-feature insight card (lifeEngine.ts) when
+ * there's something real to say — the only "live data" this screen shows, and it's a pure
+ * read of what other features already computed, not a new inference pass.
  */
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -12,6 +14,7 @@ import {
   View,
 } from 'react-native';
 
+import { computeLifeInsight, type LifeInsight } from '../core/lifeEngine';
 import { color, elevation, layout, radii, space, type } from '../theme/tokens';
 
 export type FeatureKey = 'overwhelm' | 'energy' | 'hydration' | 'expense' | 'healthImport';
@@ -60,6 +63,14 @@ const CARDS: Card[] = [
 ];
 
 export function HomeScreen({ onNavigate }: Props) {
+  const [insight, setInsight] = useState<LifeInsight | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    void computeLifeInsight().then((i) => { if (alive) setInsight(i); });
+    return () => { alive = false; };
+  }, []);
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -83,6 +94,8 @@ export function HomeScreen({ onNavigate }: Props) {
             </Pressable>
           </View>
 
+          {insight && <LifeInsightCard insight={insight} />}
+
           {/* feature cards */}
           <View style={styles.cards}>
             {CARDS.map((card) => (
@@ -92,6 +105,17 @@ export function HomeScreen({ onNavigate }: Props) {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+/** The cross-feature insight — Energy + Hydration + Overwhelm talking to each other. */
+function LifeInsightCard({ insight }: { insight: LifeInsight }) {
+  return (
+    <View style={styles.insightCard} accessibilityRole="summary">
+      {insight.sentences.map((s, i) => (
+        <Text key={i} style={styles.insightText} maxFontSizeMultiplier={1.4}>{s}</Text>
+      ))}
+    </View>
   );
 }
 
@@ -151,6 +175,14 @@ const styles = StyleSheet.create({
   },
   gearPressed: { opacity: 0.5 },
   gearGlyph: { fontSize: 22, color: color.textSecondary },
+  insightCard: {
+    backgroundColor: color.surfaceAlt,
+    borderRadius: radii.lg,
+    padding: space[4],
+    marginBottom: space[5],
+    gap: space[1],
+  },
+  insightText: { ...type.body, color: color.textPrimary },
   cards: { gap: space[3] },
   card: {
     backgroundColor: color.surface,

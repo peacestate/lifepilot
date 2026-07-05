@@ -18,6 +18,22 @@ config.resolver.assetExts.push('pte', 'bin', 'model');
 // Polygen has a chance to compile it.
 config.resolver.assetExts.push('wasm');
 
+// react-native-audio-api's (unused) AudioControls UI component imports
+// react-native-reanimated AND react-native-gesture-handler — we never render
+// that component. The real reanimated package's bundled worklets codegen
+// collides at native-build time with the standalone react-native-worklets
+// package audio-api itself needs (see stubs/react-native-reanimated.js).
+// The real gesture-handler package calls into react-native-worklets' native
+// module AT MODULE LOAD TIME (GestureDetector/useAnimatedGesture.ts), which
+// throws with the pinned worklets version and crashes the app on boot even
+// though AudioControls is dead code (see stubs/react-native-gesture-handler.js).
+// Stub both so Metro can resolve the imports without pulling in real natives.
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  'react-native-reanimated': require.resolve('./stubs/react-native-reanimated.js'),
+  'react-native-gesture-handler': require.resolve('./stubs/react-native-gesture-handler.js'),
+};
+
 try {
   const { withPolygenConfig } = require('@callstack/polygen-metro-config');
   module.exports = withPolygenConfig(config);

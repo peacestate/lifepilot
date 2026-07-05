@@ -24,13 +24,13 @@ export function PastTasksScreen({ onBack }: Props) {
 
   const groups = useMemo(() => {
     if (!entries) return [];
-    const byTopic = new Map<string, MemoryEntry[]>();
+    const byCategory = new Map<string, MemoryEntry[]>();
     for (const e of entries) {
-      const list = byTopic.get(e.topic) ?? [];
+      const list = byCategory.get(e.category) ?? [];
       list.push(e);
-      byTopic.set(e.topic, list);
+      byCategory.set(e.category, list);
     }
-    return Array.from(byTopic.entries());
+    return Array.from(byCategory.entries());
   }, [entries]);
 
   return (
@@ -68,9 +68,9 @@ export function PastTasksScreen({ onBack }: Props) {
                     style={styles.card}
                     accessibilityRole="button"
                   >
-                    <Text style={styles.taskText}>{e.task}</Text>
+                    <Text style={styles.taskText}>{e.taskText}</Text>
                     <Text style={styles.meta}>
-                      {e.steps.length} steps · {new Date(e.savedAt).toLocaleDateString()}
+                      {e.completedSteps}/{e.totalSteps} steps done · {new Date(e.savedAt).toLocaleDateString()}
                     </Text>
                     {open && (
                       <View style={styles.stepsList}>

@@ -182,6 +182,18 @@ function roundToServing(ml: number, serving: number) {
   return Math.round(ml / serving) * serving;
 }
 
+/**
+ * How far behind (or ahead of, if negative) today's pace the user is right now, in mL —
+ * shared by decideNudge below AND lifeEngine.ts's cross-feature insight, so the "what
+ * counts as behind" math lives in exactly one place.
+ */
+export function paceDeficitMl(targetMl: number, loggedMl: number, wakeHour: number, bedHour: number, nowHour: number): number {
+  const bedCutoff = bedHour - 1;
+  const span = Math.max(1, bedCutoff - wakeHour);
+  const frac = clamp((nowHour - wakeHour) / span, 0, 1);
+  return targetMl * frac - loggedMl;
+}
+
 export function decideNudge(
   state: HydrationDayState,
   nowMs: number,

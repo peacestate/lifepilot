@@ -26,7 +26,10 @@
       "package": "com.lifepilot.app",
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "android.permission.health.READ_SLEEP",
+        "android.permission.health.READ_STEPS",
+        "android.permission.health.READ_HEART_RATE"
       ]
     },
     "plugins": [
@@ -37,7 +40,27 @@
           "cameraPermissionText": "LifePilot uses your camera to scan receipts on-device. Nothing is uploaded.",
           "enableCodeScanner": false
         }
-      ]
+      ],
+      [
+        "react-native-audio-api",
+        {
+          "iosMicrophonePermission": "LifePilot uses your microphone to let you speak a task instead of typing it. Transcription runs on-device — nothing is uploaded.",
+          "iosBackgroundMode": false,
+          "androidForegroundService": false,
+          "androidPermissions": ["android.permission.RECORD_AUDIO"],
+          "disableFFmpeg": true
+        }
+      ],
+      "expo-health-connect",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 26
+          }
+        }
+      ],
+      "./plugins/withDebuggableRelease"
     ],
     "_comment_privacy": "No network/analytics plugins. Inference is fully on-device (see docs/overwhelm-model-contract.md). react-native-executorch is autolinked native code; this app CANNOT run in Expo Go — it needs a dev client / prebuild.",
     "extra": {

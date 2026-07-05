@@ -18,4 +18,22 @@ export const EXPENSE_COPY = {
   checkThis: 'check this',
   privacy: 'The photo and everything read from it stay on your phone.',
   error: "Couldn't read that one — try another shot, or add it by hand.",
+
+  // Manual entry fallback
+  enterManually: 'Enter manually',
+  manualTitle: 'Add an expense',
+  manualMerchant: 'Merchant',
+  manualAmount: 'Amount',
+  manualCategory: 'Category',
+  manualDate: 'Date',
+  manualSubmit: 'Save expense',
+
+  // Monthly insights card
+  insightsTitle: 'This month',
+  insightsTopCategory: (cat: string, pct: number) => `${cat}: ${pct}% — your biggest category`,
+  insightsUp: (amount: string) => `Up ${amount} from last month`,
+  insightsDown: (amount: string) => `Down ${amount} from last month`,
+  insightsFlat: 'About the same as last month',
+  insightsProjection: (projected: string, usual: string) =>
+    `At this rate you'll spend ${projected} this month vs your ${usual} usual average`,
 } as const;

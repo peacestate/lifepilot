@@ -34,4 +34,5 @@ export type ExpenseRecord = {
   category: string;
   lineItems?: LineItem[];
   imageUri?: string;          // local file:// only, optional
+  manualEntry: boolean;       // true if hand-entered (no scan/OCR involved)
 };
