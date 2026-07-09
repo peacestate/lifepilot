@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>LifePilot — Pitch Deck</title>
+<meta name="hz:slide-selector" content=".slide" />
+<meta name="hz:canvas-width" content="1920" />
+<meta name="hz:canvas-height" content="1080" />
+<link rel="stylesheet" href="https://use.typekit.net/roj4zud.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #E7ECE5; display: flex; flex-direction: column; align-items: center; gap: 40px; padding: 40px; }
+
+  .slide {
+    position: relative;
+    width: 1920px;
+    height: 1080px;
+    background: #F6F8F4;
+    overflow: hidden;
+    font-family: "source-sans-3", sans-serif;
+    color: #232D25;
+  }
+
+  /* left accent rail — consistent across every slide */
+  .rail { position: absolute; top: 0; left: 0; width: 16px; height: 1080px; background: #5E7E67; }
+
+  /* footer wordmark strip — consistent across every slide */
+  .foot { position: absolute; left: 130px; bottom: 60px; display: flex; align-items: center; gap: 16px; }
+  .foot .mark { width: 34px; height: 34px; }
+  .foot .wm { font-family: "poppins", sans-serif; font-weight: 600; font-size: 24px; color: #3C5646; letter-spacing: 0.5px; }
+  .foot .tag { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 20px; color: #8A938A; margin-left: 4px; }
+  .pageno { position: absolute; right: 130px; bottom: 60px; font-family: "poppins", sans-serif; font-weight: 500; font-size: 22px; color: #A6AEA4; }
+
+  /* shared type roles */
+  .kicker { font-family: "source-sans-3", sans-serif; font-weight: 600; font-size: 22px; letter-spacing: 4px; text-transform: uppercase; color: #5E7E67; }
+  .title { font-family: "poppins", sans-serif; font-weight: 600; font-size: 76px; line-height: 1.05; color: #232D25; letter-spacing: -1px; }
+  .subtitle { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 32px; line-height: 1.5; color: #55605A; }
+  .body { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 30px; line-height: 1.55; color: #55605A; }
+
+  .content { position: absolute; left: 130px; top: 150px; right: 130px; }
+
+  /* ---- Slide 1: cover ---- */
+  .cover { background: linear-gradient(160deg, #F6F8F4 0%, #E9F0E9 100%); }
+  .cover .emblem { position: absolute; left: 130px; top: 300px; width: 150px; height: 150px; }
+  .cover .big { position: absolute; left: 130px; top: 480px; font-family: "poppins", sans-serif; font-weight: 600; font-size: 132px; letter-spacing: -3px; color: #232D25; }
+  .cover .lede { position: absolute; left: 134px; top: 636px; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 40px; color: #4C5A50; }
+  .cover .pill { position: absolute; left: 134px; top: 720px; display: inline-flex; align-items: center; gap: 14px; background: #FFFFFF; border: 1px solid #D8E0D4; border-radius: 40px; padding: 16px 30px; font-family: "source-sans-3", sans-serif; font-weight: 600; font-size: 26px; color: #3C5646; }
+  .cover .dot { width: 14px; height: 14px; border-radius: 50%; background: #5E7E67; }
+  .cover .badge { position: absolute; right: 130px; top: 130px; text-align: right; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 22px; color: #8A938A; line-height: 1.5; }
+
+  /* ---- generic stacked bullets ---- */
+  .bullets { margin-top: 60px; display: flex; flex-direction: column; gap: 40px; max-width: 1400px; }
+  .brow { display: flex; gap: 28px; align-items: flex-start; }
+  .bnum { flex: none; width: 54px; height: 54px; border-radius: 50%; background: #E7EFE7; color: #3C5646; font-family: "poppins", sans-serif; font-weight: 600; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+  .btext { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 34px; line-height: 1.45; color: #3B453E; padding-top: 6px; }
+  .btext b { color: #232D25; font-weight: 600; }
+
+  /* ---- big statement ---- */
+  .statement { position: absolute; left: 130px; top: 360px; right: 200px; font-family: "poppins", sans-serif; font-weight: 600; font-size: 88px; line-height: 1.1; letter-spacing: -1.5px; color: #232D25; }
+  .statement .accent { color: #5E7E67; }
+  .note { position: absolute; left: 130px; top: 720px; right: 240px; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 32px; line-height: 1.5; color: #55605A; }
+
+  /* ---- feature grid ---- */
+  .grid { margin-top: 64px; display: grid; grid-template-columns: 1fr 1fr; gap: 34px; max-width: 1620px; }
+  .fcard { background: #FFFFFF; border: 1px solid #DCE4D8; border-radius: 22px; padding: 40px 42px; }
+  .fcard .top { display: flex; align-items: center; gap: 22px; margin-bottom: 20px; }
+  .fcard .glyph { width: 66px; height: 66px; border-radius: 50%; background: #E7EFE7; color: #5E7E67; font-size: 36px; display: flex; align-items: center; justify-content: center; }
+  .fcard .fname { font-family: "poppins", sans-serif; font-weight: 600; font-size: 34px; color: #232D25; }
+  .fcard .model { font-family: "source-sans-3", sans-serif; font-weight: 600; font-size: 21px; color: #5E7E67; letter-spacing: 0.3px; }
+  .fcard .fdesc { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 26px; line-height: 1.45; color: #55605A; }
+
+  /* ---- architecture ---- */
+  .arch { margin-top: 40px; display: flex; align-items: center; gap: 40px; }
+  .phone { width: 560px; height: 620px; border: 3px solid #5E7E67; border-radius: 46px; background: #FFFFFF; padding: 40px 36px; position: relative; }
+  .phone .plabel { text-align: center; font-family: "poppins", sans-serif; font-weight: 600; font-size: 26px; color: #3C5646; margin-bottom: 24px; }
+  .runtime { background: #E7EFE7; border-radius: 18px; padding: 22px 24px; text-align: center; font-family: "poppins", sans-serif; font-weight: 600; font-size: 24px; color: #3C5646; margin-bottom: 20px; }
+  .mrow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+  .mchip { background: #F6F8F4; border: 1px solid #DCE4D8; border-radius: 14px; padding: 16px; text-align: center; font-family: "source-sans-3", sans-serif; font-weight: 600; font-size: 21px; color: #3B453E; }
+  .stores { background: #F6F8F4; border: 1px dashed #C3CEBE; border-radius: 14px; padding: 16px; text-align: center; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 21px; color: #6E786F; }
+  .archside { flex: 1; }
+  .optrow { display: flex; align-items: center; gap: 18px; margin-bottom: 26px; }
+  .lock { width: 46px; height: 46px; flex: none; }
+  .opttext { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 27px; line-height: 1.4; color: #55605A; }
+  .opttext b { color: #232D25; font-weight: 600; }
+
+  /* ---- AMD flow ---- */
+  .flow { margin-top: 90px; display: flex; align-items: center; gap: 20px; }
+  .fstep { flex: 1; background: #FFFFFF; border: 1px solid #DCE4D8; border-radius: 20px; padding: 34px 26px; text-align: center; min-height: 210px; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+  .fstep.amd { background: #E7EFE7; border-color: #B9CDBD; }
+  .fstep .fh { font-family: "poppins", sans-serif; font-weight: 600; font-size: 28px; color: #232D25; }
+  .fstep .fs { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 22px; line-height: 1.4; color: #55605A; }
+  .arrow { flex: none; font-family: "poppins", sans-serif; font-weight: 600; font-size: 40px; color: #9DB1A2; }
+
+  /* ---- three columns ---- */
+  .cols { margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 34px; }
+  .col { background: #FFFFFF; border: 1px solid #DCE4D8; border-radius: 22px; padding: 42px 38px; }
+  .col .ch { font-family: "poppins", sans-serif; font-weight: 600; font-size: 32px; color: #3C5646; margin-bottom: 18px; }
+  .col .cb { font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 27px; line-height: 1.5; color: #55605A; }
+
+  /* ---- checklist ---- */
+  .checks { margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px 80px; max-width: 1560px; }
+  .chk { display: flex; align-items: center; gap: 22px; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 32px; color: #3B453E; }
+  .chk .tick { width: 44px; height: 44px; flex: none; border-radius: 50%; background: #5E7E67; color: #FFFFFF; font-size: 24px; display: flex; align-items: center; justify-content: center; }
+
+  /* ---- closing ---- */
+  .close { background: linear-gradient(160deg, #3C5646 0%, #2C4234 100%); }
+  .close .emblem { position: absolute; left: 130px; top: 300px; width: 130px; height: 130px; }
+  .close .cbig { position: absolute; left: 130px; top: 470px; right: 200px; font-family: "poppins", sans-serif; font-weight: 600; font-size: 96px; line-height: 1.05; letter-spacing: -2px; color: #F6F8F4; }
+  .close .csub { position: absolute; left: 134px; top: 690px; font-family: "source-sans-3", sans-serif; font-weight: 400; font-size: 36px; color: #C7D6C9; }
+  .close .crepo { position: absolute; left: 134px; top: 770px; font-family: "poppins", sans-serif; font-weight: 500; font-size: 30px; color: #A9C0AD; }
+  .close .foot .wm { color: #E7EFE7; }
+  .close .foot .tag { color: #9DB1A2; }
+  .close .pageno { color: #6E8B74; }
+</style>
+</head>
+<body>
+
+<!-- ============ SLIDE 1 — COVER ============ -->
+<div class="slide cover" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <svg class="emblem" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="6"/>
+    <circle cx="50" cy="50" r="26" fill="none" stroke="#9DB1A2" stroke-width="5"/>
+    <circle cx="50" cy="50" r="9" fill="#5E7E67"/>
+  </svg>
+  <div class="badge">AMD Developer Hackathon · ACT II<br/>Track 3 — Unicorn (Open Innovation)</div>
+  <div class="big">LifePilot</div>
+  <div class="lede">Your on-device wellness co-pilot. Nothing leaves your phone.</div>
+  <div class="pill"><span class="dot"></span>4 AI features · 0 servers · works in airplane mode</div>
+  <div class="foot">
+    <svg class="mark" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg>
+    <span class="wm">LifePilot</span>
+  </div>
+  <div class="pageno">01</div>
+</div>
+
+<!-- ============ SLIDE 2 — PROBLEM ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content">
+    <div class="kicker">The problem</div>
+    <div class="title" style="margin-top:24px;">Wellness apps want your<br/>data. That's the business model.</div>
+    <div class="bullets">
+      <div class="brow"><div class="bnum">1</div><div class="btext">Your health, mood, spending, and location get <b>shipped to servers you don't control.</b></div></div>
+      <div class="brow"><div class="bnum">2</div><div class="btext">A "privacy policy" is really <b>permission to monetize</b> the most intimate data you have.</div></div>
+      <div class="brow"><div class="bnum">3</div><div class="btext">Turn off the internet and most "AI" wellness apps <b>stop working entirely.</b></div></div>
+    </div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">02</div>
+</div>
+
+<!-- ============ SLIDE 3 — SOLUTION ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content"><div class="kicker">The solution</div></div>
+  <div class="statement">Every AI inference runs <span class="accent">on-device,</span> via ExecuTorch.</div>
+  <div class="note">The app works <b style="color:#232D25;">identically in airplane mode</b> — that's not a fallback, it's the whole architecture. The only network calls that exist are opt-in and off by default: a coarse-location weather lookup and optional model updates. Neither ever sends anything about you.</div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">03</div>
+</div>
+
+<!-- ============ SLIDE 4 — FEATURES ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content" style="top:120px;">
+    <div class="kicker">What it does</div>
+    <div class="title" style="margin-top:22px; font-size:64px;">Four on-device models, one calm app</div>
+    <div class="grid">
+      <div class="fcard">
+        <div class="top"><div class="glyph">◎</div><div><div class="fname">Overwhelm Manager</div><div class="model">Llama 3.2 1B · QAT-LoRA · ExecuTorch</div></div></div>
+        <div class="fdesc">Breaks a freeform task into 5–8 calm steps; personalizes from on-device memory. Optional voice input (Whisper tiny.en).</div>
+      </div>
+      <div class="fcard">
+        <div class="top"><div class="glyph">◐</div><div><div class="fname">Energy Planner</div><div class="model">Trained time-series model</div></div></div>
+        <div class="fdesc">Predicts a 24-hour energy curve from your sleep and activity via Health Connect.</div>
+      </div>
+      <div class="fcard">
+        <div class="top"><div class="glyph">◉</div><div><div class="fname">Hydration Tracker</div><div class="model">Trained regression model</div></div></div>
+        <div class="fdesc">A personalized daily water target, optionally sharpened by local weather &amp; AQI.</div>
+      </div>
+      <div class="fcard">
+        <div class="top"><div class="glyph">◈</div><div><div class="fname">Expense Scanner</div><div class="model">On-device OCR + extraction models</div></div></div>
+        <div class="fdesc">Camera or PDF receipt → structured expense. Handles currencies worldwide.</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">04</div>
+</div>
+
+<!-- ============ SLIDE 5 — DEMO ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content"><div class="kicker">Live demo</div></div>
+  <div class="statement" style="top:340px;">Everything you're about<br/>to see ran with the <span class="accent">radio off.</span></div>
+  <div class="note" style="top:700px;">Airplane mode on. Overwhelm breaks down a real task, streaming steps live. A receipt is scanned to a structured expense. The hydration target updates with the live-weather toggle. All on the phone's own compute.</div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">05</div>
+</div>
+
+<!-- ============ SLIDE 6 — ARCHITECTURE ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content" style="top:120px;">
+    <div class="kicker">Architecture</div>
+    <div class="title" style="margin-top:22px; font-size:60px;">Bundled-first. Update-optional. Pin-gated.</div>
+    <div class="arch">
+      <div class="phone">
+        <div class="plabel">On the phone</div>
+        <div class="runtime">ExecuTorch runtime v0.6.0</div>
+        <div class="mrow">
+          <div class="mchip">Overwhelm .pte</div>
+          <div class="mchip">Energy .pte</div>
+          <div class="mchip">Hydration .pte</div>
+          <div class="mchip">Expense .pte</div>
+        </div>
+        <div class="stores">On-device feature stores · sandboxed, encrypted at rest</div>
+        <div class="runtime" style="margin-top:20px; margin-bottom:0; background:#F6F8F4; border:1px solid #DCE4D8; color:#3B453E; font-size:21px;">ModelRegistry — bundled-first, atomic + rollback</div>
+      </div>
+      <div class="archside">
+        <div class="optrow">
+          <svg class="lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5" fill="none" stroke="#5E7E67" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#5E7E67" stroke-width="2"/></svg>
+          <div class="opttext"><b>Opt-in weather</b> — coarse, grid-rounded location only. Off by default.</div>
+        </div>
+        <div class="optrow">
+          <svg class="lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5" fill="none" stroke="#5E7E67" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="#5E7E67" stroke-width="2"/></svg>
+          <div class="opttext"><b>Opt-in model updates</b> — model-in only. Nothing about you is ever sent.</div>
+        </div>
+        <div class="opttext" style="margin-top:30px; color:#3B453E;">Ships a working model per feature that <b>works offline forever</b>, even if no update is ever fetched. React Native (Expo, New Architecture).</div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">06</div>
+</div>
+
+<!-- ============ SLIDE 7 — AMD ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content"><div class="kicker">Use of AMD</div>
+    <div class="title" style="margin-top:22px; font-size:60px;">AMD MI300X / ROCm is our<br/>training &amp; export pipeline</div>
+    <div class="flow">
+      <div class="fstep amd"><div class="fh">AMD MI300X</div><div class="fs">ROCm · containerized (ml/export)</div></div>
+      <div class="arrow">→</div>
+      <div class="fstep"><div class="fh">Train + quantize</div><div class="fs">Energy · Hydration · Expense; Llama QAT-LoRA</div></div>
+      <div class="arrow">→</div>
+      <div class="fstep"><div class="fh">Export .pte</div><div class="fs">ExecuTorch artifacts, pin-gated</div></div>
+      <div class="arrow">→</div>
+      <div class="fstep amd" style="background:#E7EFE7;"><div class="fh">Runs on phone</div><div class="fs">100% on-device · no cloud at inference</div></div>
+    </div>
+    <div class="note" style="position:static; margin-top:80px; right:0;">The shipped app never calls AMD or any cloud at inference — that's the point. <b style="color:#232D25;">AMD compute produces the intelligence; the phone runs it privately.</b></div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">07</div>
+</div>
+
+<!-- ============ SLIDE 8 — WHY UNICORN ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content" style="top:130px;">
+    <div class="kicker">Why this is a unicorn</div>
+    <div class="title" style="margin-top:22px; font-size:60px;">A privacy moat incumbents<br/>structurally can't copy</div>
+    <div class="cols">
+      <div class="col"><div class="ch">The market</div><div class="cb">Wellness apps are a $6B+ category — built, today, on data monetization.</div></div>
+      <div class="col"><div class="ch">The wedge</div><div class="cb">A fast-growing set of users (and regulators) who won't accept that trade anymore.</div></div>
+      <div class="col"><div class="ch">The moat</div><div class="cb">Incumbents' revenue depends on the cloud pipeline we removed — they can't follow without breaking their own model.</div></div>
+    </div>
+    <div class="note" style="position:static; margin-top:54px; right:0;">Expansion: the same on-device engine extends to sleep, focus, and finance — plus an audio-only Smart Glasses layer (phone-as-brain, no cloud).</div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">08</div>
+</div>
+
+<!-- ============ SLIDE 9 — COMPLETENESS ============ -->
+<div class="slide" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail"></div>
+  <div class="content" style="top:130px;">
+    <div class="kicker">Completeness</div>
+    <div class="title" style="margin-top:22px; font-size:60px;">Built, and running on a<br/>real phone today</div>
+    <div class="checks">
+      <div class="chk"><span class="tick">✓</span>All 4 features live, on-device</div>
+      <div class="chk"><span class="tick">✓</span>Verified in airplane mode</div>
+      <div class="chk"><span class="tick">✓</span>Worldwide expense parsing</div>
+      <div class="chk"><span class="tick">✓</span>Persistent on-device stores</div>
+      <div class="chk"><span class="tick">✓</span>Custom onboarding + app icon</div>
+      <div class="chk"><span class="tick">✓</span>Test coverage on core logic</div>
+      <div class="chk"><span class="tick">✓</span>Installs as a standalone APK</div>
+      <div class="chk"><span class="tick">✓</span>MIT code · Built with Llama (compliant)</div>
+    </div>
+  </div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#5E7E67" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#5E7E67"/></svg><span class="wm">LifePilot</span></div>
+  <div class="pageno">09</div>
+</div>
+
+<!-- ============ SLIDE 10 — CLOSE ============ -->
+<div class="slide close" data-canvas-width="1920" data-canvas-height="1080">
+  <div class="rail" style="background:#6E8B74;"></div>
+  <svg class="emblem" viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#9DB1A2" stroke-width="6"/>
+    <circle cx="50" cy="50" r="26" fill="none" stroke="#6E8B74" stroke-width="5"/>
+    <circle cx="50" cy="50" r="9" fill="#C7D6C9"/>
+  </svg>
+  <div class="cbig">Intelligence that<br/>stays yours.</div>
+  <div class="csub">The smartest wellness app that never phones home.</div>
+  <div class="crepo">github.com/kiAnukal/lifepilot</div>
+  <div class="foot"><svg class="mark" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="none" stroke="#E7EFE7" stroke-width="8"/><circle cx="50" cy="50" r="18" fill="#C7D6C9"/></svg><span class="wm">LifePilot</span><span class="tag">On-device · private by construction · made with AMD compute</span></div>
+  <div class="pageno">10</div>
+</div>
+
+</body>
+</html>
