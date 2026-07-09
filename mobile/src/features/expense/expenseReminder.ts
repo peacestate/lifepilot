@@ -4,12 +4,26 @@
  * caller (useExpenseScanner / ExpenseScreen) decides when to re-evaluate and dedup per day.
  */
 import { buildMonthlySummary, monthTotal, savingsStreak, weekTotal } from './expenseInsights';
+import { moneyLabel } from './ExpenseService';
 import type { ExpenseRecord } from './types';
 
 export type NudgeKind = 'bigPurchase' | 'weeklySummary' | 'categorySpike' | 'monthEnd' | 'savingsStreak';
 export type Nudge = { kind: NudgeKind; message: string };
 
-const fmt = (n: number) => `$${Math.abs(n).toFixed(2)}`;
+// Format an amount in a specific currency (₹562.00, ¥800, AED 45.00) rather than a
+// hardcoded "$" — an Indian receipt should read in rupees, not dollars.
+const fmt = (n: number, currency: string) =>
+  moneyLabel({ amount: Math.abs(n), currency, currencyAssumed: false });
+
+/** Most common currency across the given records (for aggregate nudges spanning many). */
+const mainCurrency = (records: ExpenseRecord[]): string => {
+  const counts = new Map<string, number>();
+  for (const r of records) counts.set(r.currency, (counts.get(r.currency) ?? 0) + 1);
+  let best = records[0]?.currency ?? 'INR';
+  let bestN = 0;
+  for (const [c, n] of counts) if (n > bestN) { best = c; bestN = n; }
+  return best;
+};
 
 /** Fires right after a save if it's the biggest single expense in the trailing 7 days. */
 export function afterPurchaseNudge(records: ExpenseRecord[], justSaved: ExpenseRecord): Nudge | null {
@@ -22,7 +36,7 @@ export function afterPurchaseNudge(records: ExpenseRecord[], justSaved: ExpenseR
   if (justSaved.amount <= maxOther) return null;
   return {
     kind: 'bigPurchase',
-    message: `You just logged ${fmt(justSaved.amount)} at ${justSaved.merchant} — that's your biggest single expense this week.`,
+    message: `You just logged ${fmt(justSaved.amount, justSaved.currency)} at ${justSaved.merchant} — that's your biggest single expense this week.`,
   };
 }
 
@@ -32,8 +46,9 @@ export function weeklySummaryNudge(records: ExpenseRecord[], nowMs: number = Dat
   if (thisWeek <= 0) return null;
   const lastWeek = weekTotal(records, nowMs, 1);
   const diff = thisWeek - lastWeek;
-  const trend = diff > 0 ? ` — ${fmt(diff)} more than last week.` : diff < 0 ? ` — ${fmt(diff)} less than last week.` : '.';
-  return { kind: 'weeklySummary', message: `You spent ${fmt(thisWeek)} this week${trend}` };
+  const cur = mainCurrency(records);
+  const trend = diff > 0 ? ` — ${fmt(diff, cur)} more than last week.` : diff < 0 ? ` — ${fmt(diff, cur)} less than last week.` : '.';
+  return { kind: 'weeklySummary', message: `You spent ${fmt(thisWeek, cur)} this week${trend}` };
 }
 
 /** Highest category spike this month, if any exceeds the threshold in buildMonthlySummary. */
@@ -57,7 +72,7 @@ export function monthEndNudge(records: ExpenseRecord[], nowMs: number = Date.now
   const remaining = Math.max(0, summary.usualMonthlyAverage - summary.totalThisMonth);
   return {
     kind: 'monthEnd',
-    message: `You have ${daysLeft} day${daysLeft === 1 ? '' : 's'} left this month and ${fmt(remaining)} of your usual budget remaining.`,
+    message: `You have ${daysLeft} day${daysLeft === 1 ? '' : 's'} left this month and ${fmt(remaining, mainCurrency(records))} of your usual budget remaining.`,
   };
 }
 
@@ -70,7 +85,7 @@ export function savingsStreakNudge(records: ExpenseRecord[], nowMs: number = Dat
   const saved = twoMonthsAgo - lastMonth; // positive because savingsStreak() already confirmed lastMonth < twoMonthsAgo
   return {
     kind: 'savingsStreak',
-    message: `Great month — you spent ${fmt(saved)} less than the month before. Saving streak: ${streak} month${streak === 1 ? '' : 's'}.`,
+    message: `Great month — you spent ${fmt(saved, mainCurrency(records))} less than the month before. Saving streak: ${streak} month${streak === 1 ? '' : 's'}.`,
   };
 }
 

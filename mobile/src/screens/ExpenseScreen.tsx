@@ -15,12 +15,24 @@ import { SecondaryButton } from '../components/SecondaryButton';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
 import { ManualExpenseEntryForm } from '../components/ManualExpenseEntryForm';
 import { moneyLabel, EXPENSE } from '../features/expense/ExpenseService';
+import { CODE_TO_SYMBOL, ISO_CODE_SET } from '../features/expense/currencies';
 import { CameraSheet } from '../features/expense/CameraSheet';
 import { buildMonthlySummary } from '../features/expense/expenseInsights';
 import { useExpenseScanner } from '../features/expense/useExpenseScanner';
 import type { ExpenseFields } from '../features/expense/types';
 import { color, layout, radii, space, type } from '../theme/tokens';
 import { EXPENSE_COPY as C } from './expenseCopy';
+
+/** Dominant currency across a set of records — for aggregate totals that would
+ * otherwise hardcode "$" even when every receipt is in ₹. */
+function mainCcy(records: ReadonlyArray<{ currency: string }>): string {
+  const counts = new Map<string, number>();
+  for (const r of records) counts.set(r.currency, (counts.get(r.currency) ?? 0) + 1);
+  let best = records[0]?.currency ?? 'INR';
+  let bestN = 0;
+  for (const [c, n] of counts) if (n > bestN) { best = c; bestN = n; }
+  return best;
+}
 
 export function ExpenseScreen() {
   const s = useExpenseScanner();
@@ -44,7 +56,7 @@ export function ExpenseScreen() {
           {s.state === 'reading' ? (
             <View style={styles.center}><Text style={styles.dim} accessibilityLiveRegion="polite">{C.reading}</Text></View>
           ) : s.state === 'review' && s.fields ? (
-            <ReviewBody fields={s.fields} onSave={s.save} onRetake={openCamera} />
+            <ReviewBody fields={s.fields} onSave={s.save} onRetake={openCamera} defaultCurrency={s.records[0]?.currency} />
           ) : s.state === 'error' ? (
             <View style={styles.center}>
               <Text style={styles.dim}>{C.error}</Text>
@@ -110,21 +122,24 @@ function InsightsCard({ records }: { records: ReturnType<typeof useExpenseScanne
   const summary = useMemo(() => buildMonthlySummary(records), [records]);
   if (summary.totalThisMonth <= 0) return null;
   const top = summary.byCategory[0];
+  const cur = mainCcy(records);
+  const sym = CODE_TO_SYMBOL[cur];
+  const money0 = (n: number) => (sym ? `${sym}${Math.round(n)}` : `${cur} ${Math.round(n)}`);
   const trend =
     summary.deltaPct == null ? null
-      : summary.deltaVsLastMonth > 0 ? C.insightsUp(`$${summary.deltaVsLastMonth.toFixed(0)}`)
-      : summary.deltaVsLastMonth < 0 ? C.insightsDown(`$${Math.abs(summary.deltaVsLastMonth).toFixed(0)}`)
+      : summary.deltaVsLastMonth > 0 ? C.insightsUp(money0(summary.deltaVsLastMonth))
+      : summary.deltaVsLastMonth < 0 ? C.insightsDown(money0(Math.abs(summary.deltaVsLastMonth)))
       : C.insightsFlat;
 
   return (
     <View style={styles.insightsCard}>
       <Text style={styles.insightsTitle}>{C.insightsTitle}</Text>
-      <Text style={styles.insightsTotal}>${summary.totalThisMonth.toFixed(2)}</Text>
+      <Text style={styles.insightsTotal}>{moneyLabel({ amount: summary.totalThisMonth, currency: cur, currencyAssumed: false })}</Text>
       {top && <Text style={styles.insightsLine}>{C.insightsTopCategory(top.category, top.pct)}</Text>}
       {trend && <Text style={styles.insightsLine}>{trend}</Text>}
       {summary.usualMonthlyAverage > 0 && (
         <Text style={styles.insightsLine}>
-          {C.insightsProjection(`$${summary.projectedTotal.toFixed(0)}`, `$${summary.usualMonthlyAverage.toFixed(0)}`)}
+          {C.insightsProjection(money0(summary.projectedTotal), money0(summary.usualMonthlyAverage))}
         </Text>
       )}
     </View>
@@ -140,10 +155,11 @@ function ListBody({ records, nudge, onDismissNudge, onScan, onUpload, onManual }
   onManual: () => void;
 }) {
   const total = useMemo(() => records.reduce((a, r) => a + r.amount, 0), [records]);
+  const cur = mainCcy(records);
   return (
     <View>
       <Text style={styles.title} accessibilityRole="header">{C.title}</Text>
-      {records.length > 0 && <Text style={styles.subtle}>{C.totalThisList(`$${total.toFixed(2)}`)}</Text>}
+      {records.length > 0 && <Text style={styles.subtle}>{C.totalThisList(moneyLabel({ amount: total, currency: cur, currencyAssumed: false }))}</Text>}
 
       {nudge && <NudgeBanner message={nudge.message} onDismiss={onDismissNudge} />}
       <InsightsCard records={records} />
@@ -172,17 +188,38 @@ function ListBody({ records, nudge, onDismissNudge, onScan, onUpload, onManual }
   );
 }
 
-function ReviewBody({ fields, onSave, onRetake }: {
+/** Quick-pick currencies for the review screen; any other ISO 4217 code via "Other". */
+const QUICK_CCY = ['INR', 'USD', 'EUR', 'GBP'] as const;
+const ccyLabel = (code: string) => {
+  const sym = CODE_TO_SYMBOL[code];
+  return sym && sym !== code ? `${sym} ${code}` : code;
+};
+
+function ReviewBody({ fields, onSave, onRetake, defaultCurrency }: {
   fields: ExpenseFields;
   onSave: ReturnType<typeof useExpenseScanner>['save'];
   onRetake: () => void;
+  defaultCurrency?: string;
 }) {
   const [merchant, setMerchant] = useState(fields.merchant.value ?? '');
   const [amount, setAmount] = useState(fields.total.value ? String(fields.total.value.amount) : '');
   const [dateISO, setDateISO] = useState(fields.date.value ?? '');
   const [category, setCategory] = useState(fields.category.value ?? 'Other');
-  const currency = fields.total.value?.currency ?? 'USD';
   const flag = (k: 'merchant' | 'date' | 'total' | 'category') => fields.reviewFields.includes(k);
+
+  // Currency: trust the OCR-detected code only when it wasn't assumed; otherwise fall
+  // back to the user's last-used currency, and finally to INR (India-first) — the
+  // extractor's own USD default stays put for eval parity, but the human-facing review
+  // shouldn't silently stamp $ on a rupee receipt when nothing was actually detected.
+  const detected = fields.total.value?.currency;
+  const assumed = fields.total.value?.currencyAssumed ?? true;
+  const initialCcy =
+    detected && !assumed ? detected
+      : defaultCurrency && ISO_CODE_SET.has(defaultCurrency) ? defaultCurrency
+        : 'INR';
+  const [ccyText, setCcyText] = useState(initialCcy);
+  const [showOtherCcy, setShowOtherCcy] = useState(!(QUICK_CCY as readonly string[]).includes(initialCcy));
+  const currency = ISO_CODE_SET.has(ccyText.trim().toUpperCase()) ? ccyText.trim().toUpperCase() : initialCcy;
 
   return (
     <View>
@@ -191,6 +228,37 @@ function ReviewBody({ fields, onSave, onRetake }: {
 
       <EditField label={C.merchant} value={merchant} onChange={setMerchant} flagged={flag('merchant')} />
       <EditField label={C.amount} value={amount} onChange={setAmount} keyboardType="decimal-pad" flagged={flag('total')} />
+
+      <Text style={styles.fieldLabel}>{C.manualCurrency}{assumed ? `  · ${C.checkThis}` : ''}</Text>
+      <View style={styles.chips}>
+        {QUICK_CCY.map((c) => {
+          const on = !showOtherCcy && currency === c;
+          return (
+            <Pressable key={c} onPress={() => { setCcyText(c); setShowOtherCcy(false); }}
+              accessibilityRole="button" accessibilityState={{ selected: on }}
+              style={[styles.chip, on && styles.chipOn]}>
+              <Text style={[styles.chipText, on && styles.chipTextOn]}>{ccyLabel(c)}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable onPress={() => { setShowOtherCcy(true); setCcyText(''); }}
+          accessibilityRole="button" accessibilityState={{ selected: showOtherCcy }}
+          style={[styles.chip, showOtherCcy && styles.chipOn]}>
+          <Text style={[styles.chipText, showOtherCcy && styles.chipTextOn]}>Other</Text>
+        </Pressable>
+      </View>
+      {showOtherCcy && (
+        <TextInput
+          style={[styles.input, { marginTop: space[2] }, !ISO_CODE_SET.has(ccyText.trim().toUpperCase()) && styles.inputFlagged]}
+          value={ccyText}
+          onChangeText={setCcyText}
+          placeholder="e.g. JPY"
+          placeholderTextColor={color.textTertiary}
+          autoCapitalize="characters"
+          maxLength={3}
+        />
+      )}
+
       <EditField label={C.date} value={dateISO} onChange={setDateISO} placeholder="YYYY-MM-DD" flagged={flag('date')} />
 
       <Text style={styles.fieldLabel}>{C.category}{flag('category') ? `  · ${C.checkThis}` : ''}</Text>
