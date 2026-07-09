@@ -64,6 +64,31 @@ export function categorizeUser(taskText: string): string {
   return `Task: "${taskText}"`;
 }
 
+/**
+ * Keyword-heuristic category — REPLACES the separate LLM categorize() call.
+ *
+ * WHY (2026-07-07): that call was a full THIRD model generation per submission, fired
+ * invisibly after results were already on screen — a major reliability cost on
+ * memory-constrained devices (a whole extra 1.2GB-model inference = another chance for the
+ * native runtime to hang/segfault right after an apparently-successful result). Deriving
+ * the bucket from keywords is deterministic, instant, and needs zero native inference, so
+ * the visible result no longer depends on a hidden second/third generation succeeding.
+ * Categorization is only used for grouping/insights, where "good enough" easily suffices.
+ */
+export function categorizeHeuristic(taskText: string): Category {
+  const t = taskText.toLowerCase();
+  const table: [Category, RegExp][] = [
+    ['work', /\b(work|job|meet(ing)?|email|report|deadline|project|client|boss|presentation|office|slide)\b/],
+    ['health', /\b(gym|exercise|workout|doctor|medic|health|diet|sleep|water|hydrat|run|walk|yoga|therapy|dentist)\b/],
+    ['home', /\b(clean|room|house|kitchen|laundry|dish|tidy|organi[sz]e|declutter|garden|repair|grocer|cook|fridge)\b/],
+    ['learning', /\b(study|learn|read|course|exam|homework|assignment|practice|practise|research|revise|lecture)\b/],
+    ['finance', /\b(budget|money|bill|pay|tax|invoice|expense|bank|save|invest|debt|rent|salary)\b/],
+    ['social', /\b(friend|family|party|birthday|call|visit|meet up|gift|wedding|date|dinner|guest)\b/],
+  ];
+  for (const [cat, re] of table) if (re.test(t)) return cat;
+  return DEFAULT_CATEGORY; // 'personal'
+}
+
 /** Parse the categorize() call's raw output into one of the fixed CATEGORIES, defaulting on any miss. */
 export function parseCategory(raw: string): Category {
   const cleaned = raw.trim().toLowerCase().replace(/[^a-z]/g, '');
@@ -79,18 +104,20 @@ export function parseCategory(raw: string): Category {
  * produced these steps") — they are short-circuit context, not user-identifying data.
  */
 export function buildContextualPrompt(pastExamples: MemoryEntry[]): string {
-  if (!pastExamples.length) return SYSTEM_PROMPT;
-  const examples = pastExamples
-    .slice(0, 3)
-    .map((e, i) => {
-      const steps = e.steps.slice(0, 5).map((s) => `- ${s}`).join('\n');
-      return `Example ${i + 1}:\nTask: "${e.taskText}"\nSteps:\n${steps}`;
-    })
-    .join('\n\n');
-  return (
-    `${SYSTEM_PROMPT}\n\n` +
-    `Here are similar tasks you helped with before — use them as style reference only:\n\n${examples}`
-  );
+  // FEW-SHOT INJECTION DISABLED (on-device evidence, 2026-07-07/08): across two days
+  // of testing, EVERY generation that used the bare SYSTEM_PROMPT (memory empty)
+  // succeeded, and EVERY generation that used the enriched prompt (memory populated)
+  // hung or crashed — surviving three attempted fixes (3-examples→1 shrink with hard
+  // char caps, app-wide native serialization, and disabling the embeddings model
+  // load). This injection is the last remaining difference between the known-good
+  // and always-failing paths, and it buys almost nothing: memory still fully powers
+  // Past Tasks, progress nudges, and the weekly insight card. So the breakdown
+  // generation now ALWAYS runs with the eval-verified base prompt (20/20 report),
+  // whatever `pastExamples` holds. Signature kept so useOverwhelmManager and tests
+  // don't churn; revisit only after the runtime pin moves and an on-device
+  // two-generation test passes with memory populated.
+  void pastExamples;
+  return SYSTEM_PROMPT;
 }
 
 /**

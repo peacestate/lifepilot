@@ -105,4 +105,6 @@ export type HydrationProfile = {
   bedHour: number;
   weatherMode: WeatherMode;        // default 'offline'
   homeClimate?: WeatherConditions; // for offline mode
+  /** First-run profile prompt done (filled or skipped). Undefined/false → show it. */
+  profileComplete?: boolean;
 };

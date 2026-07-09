@@ -1,5 +1,5 @@
 {
-  "_comment": "OCR Expense reference fixtures. Each 'ocr' mimics what platform-native OCR (Apple Vision / ML Kit) returns: text lines with y position, height, and per-line confidence. 'expect' is the field-extraction contract the deterministic parser (expense_eval.py == mobile/src/features/expense TS port) must satisfy. Covers grocery, restaurant(+tip), gas/transport, pharmacy, a faded low-confidence receipt (review path), and a non-USD (INR) receipt.",
+  "_comment": "OCR Expense reference fixtures. Each 'ocr' mimics what platform-native OCR (Apple Vision / ML Kit) returns: text lines with y position, height, and per-line confidence. 'expect' is the field-extraction contract the deterministic parser (expense_eval.py == mobile/src/features/expense TS port) must satisfy. Covers grocery, restaurant(+tip), gas/transport, pharmacy, a faded low-confidence receipt (review path), non-USD (INR) receipts including Indian hospital-bill conventions (whole-number amounts, /- suffix, Net Amount label, day-first dates), and a bare-integer labelled total.",
   "fixtures": [
     {
       "name": "grocery",
@@ -99,6 +99,36 @@
       },
       "expect": {"total_amount": 140.00, "currency": "INR", "date_iso": "2026-06-12",
                  "merchant_contains": "Cafe", "category": "Food", "needs_review": false}
+    },
+    {
+      "name": "hospital_inr",
+      "ocr": {
+        "height": 220,
+        "lines": [
+          {"text": "MAX HEALTH HOSPITAL", "y": 10, "h": 18, "conf": 0.94},
+          {"text": "Patient: A. Kumar", "y": 40, "h": 10, "conf": 0.9},
+          {"text": "05/07/2026", "y": 58, "h": 10, "conf": 0.91},
+          {"text": "Consultation 500/-", "y": 90, "h": 11, "conf": 0.92},
+          {"text": "Pharmacy 250/-", "y": 106, "h": 11, "conf": 0.92},
+          {"text": "Net Amount ₹ 750/-", "y": 140, "h": 12, "conf": 0.93}
+        ]
+      },
+      "expect": {"total_amount": 750.00, "currency": "INR", "date_iso": "2026-07-05",
+                 "merchant_contains": "MAX HEALTH", "category": "Health", "needs_review": true}
+    },
+    {
+      "name": "clinic_bare_total",
+      "ocr": {
+        "height": 160,
+        "lines": [
+          {"text": "City Clinic", "y": 10, "h": 16, "conf": 0.95},
+          {"text": "Consultation Fee 1200", "y": 60, "h": 11, "conf": 0.93},
+          {"text": "NET AMOUNT 1500", "y": 105, "h": 12, "conf": 0.95},
+          {"text": "2026-07-01", "y": 135, "h": 11, "conf": 0.93}
+        ]
+      },
+      "expect": {"total_amount": 1500.00, "currency": "USD", "date_iso": "2026-07-01",
+                 "merchant_contains": "City Clinic", "category": "Health", "needs_review": false}
     }
   ]
 }

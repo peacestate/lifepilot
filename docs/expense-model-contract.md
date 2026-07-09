@@ -69,22 +69,34 @@ category set = `["Food","Groceries","Transport","Health","Shopping","Utilities",
 
 ## 3. Total
 - A "money amount" requires a **2-digit minor part** (`12.99`, `1,234.56`, EU `6,30`/`1.234,56`)
-  so quantities, years, and phone numbers aren't mistaken for prices.
-- **Label-driven:** lines matching `GRAND TOTAL / TOTAL DUE / AMOUNT DUE / BALANCE DUE / TOTAL`
-  are positive candidates; **`SUBTOTAL` is explicitly NOT a total**, and `TAX/VAT/GST/TIP/
-  CHANGE/CASH/CARD/VISA/…` lines are excluded.
+  so quantities, years, and phone numbers aren't mistaken for prices. **Whole-number
+  amounts** additionally count when explicitly money-marked: a currency marker before
+  (`₹ 500`, `Rs 1,500`, `¥800`, `KES 2,000`) or the Indian `/-` suffix after (`500/-`);
+  Indian 2-digit grouping (`1,50,000`) is handled.
+- **Label-driven:** lines matching `GRAND TOTAL / TOTAL DUE / AMOUNT DUE / BALANCE DUE /
+  NET AMOUNT / NET AMT / NET PAYABLE / AMOUNT PAYABLE / BILL AMOUNT / AMOUNT PAID /
+  PAID AMOUNT / TOTAL` are positive candidates; **`SUBTOTAL` is explicitly NOT a total**,
+  and `TAX/VAT/GST/TIP/CHANGE/CASH/CARD/VISA/…` lines are excluded.
 - If labelled totals exist → pick the **largest labelled** amount (`structural=0.9`).
+  A labelled line whose only amount is a **bare integer** (`Net Amount 1500`, dates
+  stripped first) is trusted at `structural=0.75`.
   Else → largest **non-excluded** amount as a fallback guess (`structural=0.5`).
 - **Currency** from a symbol/code on the total line, else anywhere on the receipt, else
-  `DEFAULT_CURRENCY` (flagged `currencyAssumed=true`, confidence nudged down).
+  `DEFAULT_CURRENCY` (flagged `currencyAssumed=true`, confidence nudged down). Detection
+  covers **every active ISO 4217 currency** (mirrored tables:
+  `mobile/src/features/expense/currencies.ts` ⇄ `expense_eval.py`): distinctive symbols
+  map directly (`₹ € £ ¥ ₩ ₺ …`, `$`→USD); 3-letter ISO codes are trusted only when
+  **digit-adjacent** (`ALL 500`) since several double as English words (ALL/TOP/CUP/TRY);
+  a trailing `/-` implies INR.
 - `confidence = structural × lineConf × (0.9 if currency assumed)`.
 
 ## 4. Date
 - Parses numeric `D/M/Y`·`M/D/Y`, **ISO `YYYY-MM-DD`** (unambiguous), and month-name forms
   (`14 Mar 2026`, `Mar 14, 2026`) → normalized to **ISO `YYYY-MM-DD`**.
 - Disambiguation: if one part `>12` it's forced (DD/MM vs MM/DD); if both `≤12` it's
-  **ambiguous** → `DEFAULT_DATE_LOCALE` tiebreak (`US`→MM/DD) and `ambiguous=true`
-  (lower confidence → likely review).
+  **ambiguous** → locale tiebreak and `ambiguous=true` (lower confidence → likely review).
+  The locale is per-receipt: any detected **non-USD** currency → day-first (`INTL`),
+  otherwise `DEFAULT_DATE_LOCALE` (`US`→MM/DD).
 - Plausibility window `2000 ≤ year ≤ today+1`; invalid calendar dates rejected.
 - Prefers an unambiguous date, then the topmost on the receipt.
 

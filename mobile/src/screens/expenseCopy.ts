@@ -25,8 +25,12 @@ export const EXPENSE_COPY = {
   manualMerchant: 'Merchant',
   manualAmount: 'Amount',
   manualCategory: 'Category',
+  manualCurrency: 'Currency',
   manualDate: 'Date',
   manualSubmit: 'Save expense',
+
+  // Review screen — detected line items (read-only)
+  itemsDetected: 'Items we spotted',
 
   // Monthly insights card
   insightsTitle: 'This month',

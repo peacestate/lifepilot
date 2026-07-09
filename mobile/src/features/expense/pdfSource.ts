@@ -87,6 +87,8 @@ function liteparseToOcrResult(
         text: item.text,
         y: item.bbox[1] + (page.page - 1) * 1000, // stack pages vertically
         h: item.bbox[3] || 12,
+        x: item.bbox[0],
+        w: item.bbox[2] || undefined,
         // LiteParse has higher confidence than regex; scanned pages get lower conf
         conf: page.wasOcr ? 0.7 : 0.88,
       });

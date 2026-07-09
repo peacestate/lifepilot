@@ -28,4 +28,8 @@ export const COPY = {
   breakingDownStep: 'Breaking this down on your device…',
   breakdownEmpty: "This one's already about as small as it gets.",
   breakdownError: "Couldn't split that one — try again.",
+  // shown after the app restarts following a crash mid-generation (see RUNBOOK.md)
+  recoveredDraftLabel: "The app closed before finishing your last task:",
+  recoveredDraftResume: 'Resume',
+  recoveredDraftDismiss: 'Discard',
 } as const;

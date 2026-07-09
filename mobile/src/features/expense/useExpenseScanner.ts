@@ -58,16 +58,21 @@ function applyCategorizor(fields: ExpenseFields): ExpenseFields {
 
 /**
  * Second-opinion pass through the shared Llama instance — only when the deterministic
- * pipeline already flagged something for review AND the model happens to be ready (it
- * may not be, e.g. still loading, or never provisioned). Best-effort: any failure here
- * just returns the original fields unchanged, so a scan never fails BECAUSE of this step.
+ * pipeline already flagged something for review. If the model is still cold-starting
+ * (it loads app-wide from launch), wait it out briefly rather than silently skipping
+ * the smartest step of the pipeline; a receipt that parsed cleanly never waits at all.
+ * Best-effort: any failure here just returns the original fields unchanged, so a scan
+ * never fails BECAUSE of this step.
  */
+const LLAMA_READY_WAIT_MS = 12_000;
+
 async function maybeRefineWithLlama(
   fields: ExpenseFields,
   ocr: OcrResult,
   llm: LlamaContextValue,
 ): Promise<ExpenseFields> {
-  if (!fields.needsReview || !llm.isReady) return fields;
+  if (!fields.needsReview) return fields;
+  if (!llm.isReady && !(await llm.waitUntilReady(LLAMA_READY_WAIT_MS))) return fields;
   try {
     const ocrText = ocr.lines.map((l) => l.text).join('\n');
     await llm.generate([
@@ -88,12 +93,18 @@ export function useExpenseScanner(): UseExpenseScanner {
   const [records, setRecords] = useState<ExpenseRecord[]>(() => expenseStore.all());
   const [nudge, setNudge] = useState<Nudge | null>(null);
 
-  // On mount: surface a weekly-summary / category-spike / month-end / savings-streak
-  // nudge if one applies right now (step 8) — the after-purchase nudge (below) takes
-  // priority whenever a save just happened, so only set this if nothing already is.
+  // On mount: wait for the on-disk stores to load (records + learned categories), then
+  // refresh the list and surface a weekly-summary / category-spike / month-end /
+  // savings-streak nudge if one applies right now (step 8) — the after-purchase nudge
+  // (below) takes priority whenever a save just happened, so only set it if nothing is.
   useEffect(() => {
-    setNudge((current) => current ?? periodicNudge(expenseStore.all()));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let alive = true;
+    void Promise.all([expenseStore.ready(), expenseCategorizor.ready()]).then(() => {
+      if (!alive) return;
+      setRecords(expenseStore.all());
+      setNudge((current) => current ?? periodicNudge(expenseStore.all()));
+    });
+    return () => { alive = false; };
   }, []);
 
   const scan = useCallback(async (imageUri?: string) => {
@@ -135,7 +146,7 @@ export function useExpenseScanner(): UseExpenseScanner {
       merchant: entry.merchant,
       dateISO: entry.dateISO,
       amount: entry.amount,
-      currency: 'USD',
+      currency: entry.currency,
       category: entry.category,
       manualEntry: true,
     });

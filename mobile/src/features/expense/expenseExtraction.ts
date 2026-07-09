@@ -20,7 +20,7 @@
  *
  * PRIVACY: zero networking (both models + the featurizer are pure/local).
  */
-import { EXPENSE, extractDate, extractFields, extractTotal } from './ExpenseService';
+import { dateLocaleFor, EXPENSE, extractDate, extractFields, extractTotal } from './ExpenseService';
 import { argmaxLabel, buildCategoryInput, buildLineTaggerInput } from './expenseFeaturizer';
 import { CATEGORY_LABELS, LINE_LABELS, runCategoryModel, runLineTagger } from './expenseModel';
 import type { ExpenseFields, OcrResult } from './types';
@@ -69,7 +69,7 @@ export async function extractFieldsSmart(ocr: OcrResult): Promise<ExpenseFields>
 
   const dateHit = bestLineFor('DATE', tags);
   if (dateHit) {
-    const parsed = extractDate([lines[dateHit.lineIndex]]);
+    const parsed = extractDate([lines[dateHit.lineIndex]], dateLocaleFor(lines.map((l) => l.text).join('\n')));
     if (parsed.value != null) {
       result.date = {
         value: parsed.value,

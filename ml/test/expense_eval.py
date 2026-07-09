@@ -45,13 +45,76 @@ CURRENCY_MAP = {
 }
 CURRENCY_RE = re.compile(r"(US\$|RS\.?|USD|EUR|GBP|INR|[$€£₹])", re.IGNORECASE)
 
+# --- world-wide currency support (mirror of mobile .../expense/currencies.ts) -----
+# Every active ISO 4217 code -- covers all ~196 countries (many share a currency).
+ISO_CURRENCY_CODES = [
+    "AED", "AFN", "ALL", "AMD", "ANG", "AOA", "ARS", "AUD", "AWG", "AZN",
+    "BAM", "BBD", "BDT", "BGN", "BHD", "BIF", "BMD", "BND", "BOB", "BRL",
+    "BSD", "BTN", "BWP", "BYN", "BZD",
+    "CAD", "CDF", "CHF", "CLP", "CNY", "COP", "CRC", "CUP", "CVE", "CZK",
+    "DJF", "DKK", "DOP", "DZD",
+    "EGP", "ERN", "ETB", "EUR",
+    "FJD", "FKP",
+    "GBP", "GEL", "GHS", "GIP", "GMD", "GNF", "GTQ", "GYD",
+    "HKD", "HNL", "HTG", "HUF",
+    "IDR", "ILS", "INR", "IQD", "IRR", "ISK",
+    "JMD", "JOD", "JPY",
+    "KES", "KGS", "KHR", "KMF", "KPW", "KRW", "KWD", "KYD", "KZT",
+    "LAK", "LBP", "LKR", "LRD", "LSL", "LYD",
+    "MAD", "MDL", "MGA", "MKD", "MMK", "MNT", "MOP", "MRU", "MUR", "MVR",
+    "MWK", "MXN", "MYR", "MZN",
+    "NAD", "NGN", "NIO", "NOK", "NPR", "NZD",
+    "OMR",
+    "PAB", "PEN", "PGK", "PHP", "PKR", "PLN", "PYG",
+    "QAR",
+    "RON", "RSD", "RUB", "RWF",
+    "SAR", "SBD", "SCR", "SDG", "SEK", "SGD", "SHP", "SLE", "SOS", "SRD",
+    "SSP", "STN", "SYP", "SZL",
+    "THB", "TJS", "TMT", "TND", "TOP", "TRY", "TTD", "TWD", "TZS",
+    "UAH", "UGX", "USD", "UYU", "UZS",
+    "VES", "VND", "VUV",
+    "WST",
+    "XAF", "XCD", "XOF", "XPF",
+    "YER",
+    "ZAR", "ZMW", "ZWG",
+]
+ISO_CODE_ALTERNATION = "|".join(ISO_CURRENCY_CODES)
+SYMBOL_TO_CODE = {
+    "₹": "INR", "$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY", "₩": "KRW",
+    "₺": "TRY", "₽": "RUB", "₫": "VND", "₴": "UAH", "₦": "NGN", "₱": "PHP",
+    "฿": "THB", "₲": "PYG", "₪": "ILS", "₡": "CRC", "₸": "KZT", "₮": "MNT",
+    "₭": "LAK", "֏": "AMD", "₼": "AZN", "₾": "GEL", "৳": "BDT", "₨": "INR",
+    "US$": "USD", "R$": "BRL", "A$": "AUD", "CA$": "CAD", "NZ$": "NZD",
+    "HK$": "HKD", "NT$": "TWD", "S$": "SGD",
+}
+# Multi-char symbols ("US$", "R$") before the single-char class so they win.
+SYMBOL_ALTERNATION = r"US\$|CA\$|NZ\$|HK\$|NT\$|R\$|A\$|S\$|[$€£₹¥₩₺₽₫₴₦₱฿₲₪₡₸₮₭֏₼₾৳₨]"
+EXT_SYMBOL_RE = re.compile("(%s)" % SYMBOL_ALTERNATION, re.IGNORECASE)
+# ISO codes are only trusted digit-adjacent ("ALL 500") -- several double as
+# English words (ALL, TOP, CUP, TRY, ...).
+ISO_CODE_RE = re.compile(r"\b(%s)\b" % ISO_CODE_ALTERNATION, re.IGNORECASE)
+
 # A money amount: requires a 2-digit minor part so quantities / phone numbers / years
 # are not mistaken for prices. Handles US "1,234.56" / "12.99" and EU "1.234,56" / "6,30".
 MONEY_RE = re.compile(
     r"(?P<num>\d{1,3}(?:[.,]\d{3})*[.,]\d{2}(?!\d)|\d+[.,]\d{2}(?!\d))")
 
+# Whole-number amounts (₹ 500, Rs 1,500, ¥800, KES 2,000, 500/-) count as money only
+# with explicit context -- a currency marker before, or the Indian "/-" suffix after --
+# so bare quantities / phone digits stay excluded. Handles Indian grouping (1,50,000).
+MONEY_INT_RE = re.compile(
+    r"(?:RS\.?|%s|\b(?:%s)\b)\s*(\d{1,3}(?:,\d{2,3})*|\d+)(?![.,]?\d)"
+    r"|(\d{1,3}(?:,\d{2,3})*|\d+)\s*/-" % (SYMBOL_ALTERNATION, ISO_CODE_ALTERNATION),
+    re.IGNORECASE)
+# Bare integers (2+ digits) -- trusted ONLY on a positively-labelled total line
+# ("Net Amount 1500") after date substrings are removed.
+MONEY_INT_BARE_RE = re.compile(r"\b(\d{1,3}(?:,\d{2,3})+|\d{2,7})\b(?![.,]?\d)")
+INR_SLASH_RE = re.compile(r"\d\s*/-")
+
 # Total / non-total labels (uppercased line). SUBTOTAL is explicitly NOT a total.
-POS_TOTAL_RE = re.compile(r"\b(GRAND\s*TOTAL|TOTAL\s+DUE|AMOUNT\s+DUE|BALANCE\s+DUE|TOTAL)\b")
+POS_TOTAL_RE = re.compile(
+    r"\b(GRAND\s*TOTAL|TOTAL\s+DUE|AMOUNT\s+DUE|BALANCE\s+DUE|NET\s+AMOUNT|NET\s+AMT|"
+    r"NET\s+PAYABLE|AMOUNT\s+PAYABLE|BILL\s+AMOUNT|AMOUNT\s+PAID|PAID\s+AMOUNT|TOTAL)\b")
 SUBTOTAL_RE  = re.compile(r"\bSUB\s*-?\s*TOTAL\b")
 NEG_LABEL_RE = re.compile(
     r"\b(SUBTOTAL|TAX|VAT|GST|HST|CHANGE|CASH|TENDER|TENDERED|TIP|GRATUITY|CARD|VISA|"
@@ -122,13 +185,29 @@ def parse_amount(num_str):
 
 def detect_currency(line_text):
     m = CURRENCY_RE.search(line_text)
-    if not m:
-        return None
-    return CURRENCY_MAP.get(m.group(1).upper(), CURRENCY_MAP.get(m.group(1)))
+    if m:
+        return CURRENCY_MAP.get(m.group(1).upper(), CURRENCY_MAP.get(m.group(1)))
+    sym = EXT_SYMBOL_RE.search(line_text)
+    if sym:
+        code = SYMBOL_TO_CODE.get(sym.group(1).upper(), SYMBOL_TO_CODE.get(sym.group(1)))
+        if code:
+            return code
+    # ISO codes: only when a digit sits directly next to the code (skipping space/./:).
+    for im in ISO_CODE_RE.finditer(line_text):
+        before = line_text[:im.start()].rstrip(" \t.:")
+        after = line_text[im.end():].lstrip(" \t.:")
+        if (before and before[-1].isdigit()) or (after and after[0].isdigit()):
+            return im.group(1).upper()
+    if INR_SLASH_RE.search(line_text):
+        return "INR"
+    return None
 
 
 def amounts_in(line_text):
-    return [parse_amount(m.group("num")) for m in MONEY_RE.finditer(line_text)]
+    out = [parse_amount(m.group("num")) for m in MONEY_RE.finditer(line_text)]
+    for m in MONEY_INT_RE.finditer(line_text):
+        out.append(parse_amount(m.group(1) or m.group(2)))
+    return out
 
 
 # ===========================================================================
@@ -138,14 +217,22 @@ def extract_total(lines, receipt_text):
     cands = []
     for i, ln in enumerate(lines):
         U = ln["text"].upper()
-        amts = amounts_in(ln["text"])
-        if not amts:
-            continue
         positive = bool(POS_TOTAL_RE.search(U)) and not SUBTOTAL_RE.search(U)
         excluded = bool(NEG_LABEL_RE.search(U)) and not positive
+        amts = amounts_in(ln["text"])
+        bare = False
+        if not amts and positive:
+            # Labelled total line with no decimal/currency-marked amount ("Net Amount
+            # 1500"): trust bare integers, after stripping date substrings so
+            # "12/05/2026" can't leak in.
+            no_dates = DATE_MOND_RE.sub(" ", DATE_DMON_RE.sub(" ", DATE_NUM_RE.sub(" ", ln["text"])))
+            amts = [parse_amount(m.group(1)) for m in MONEY_INT_BARE_RE.finditer(no_dates)]
+            bare = bool(amts)
+        if not amts:
+            continue
         for a in amts:
             cands.append({"amount": a, "y": ln["y"], "conf": ln["conf"],
-                          "positive": positive, "excluded": excluded,
+                          "positive": positive, "excluded": excluded, "bare": bare,
                           "currency": detect_currency(ln["text"]), "src": ln["text"]})
     if not cands:
         return {"value": None, "confidence": 0.0, "source": "no amount found"}
@@ -153,7 +240,7 @@ def extract_total(lines, receipt_text):
     labelled = [c for c in cands if c["positive"]]
     if labelled:
         pick = max(labelled, key=lambda c: (c["amount"], c["y"]))
-        structural = 0.9
+        structural = 0.75 if pick["bare"] else 0.9
     else:
         pool = [c for c in cands if not c["excluded"]] or cands
         pick = max(pool, key=lambda c: c["amount"])
@@ -180,7 +267,7 @@ def _valid_ymd(y, m, d):
     return 2000 <= y <= REFERENCE_TODAY[0] + 1
 
 
-def _disambiguate_numeric(a, b, c):
+def _disambiguate_numeric(a, b, c, locale):
     """Returns (iso, ambiguous) or None. a,b are first two groups; c is the year group."""
     year = c if c >= 1000 else 2000 + c
     if a > 12 and b <= 12:                        # DD/MM
@@ -188,7 +275,7 @@ def _disambiguate_numeric(a, b, c):
     elif b > 12 and a <= 12:                      # MM/DD
         mon, day, amb = a, b, False
     elif a <= 12 and b <= 12:                     # ambiguous -> locale tiebreak
-        if DEFAULT_DATE_LOCALE == "US":
+        if locale == "US":
             mon, day = a, b
         else:
             day, mon = a, b
@@ -200,7 +287,14 @@ def _disambiguate_numeric(a, b, c):
     return ("%04d-%02d-%02d" % (year, mon, day), amb)
 
 
-def extract_date(lines):
+def date_locale_for(receipt_text):
+    """Month-first only makes sense for US receipts -- any detected non-USD currency
+    (₹, €, £, ¥, KES, ...) means day-first is the safer read for ambiguous dates."""
+    cur = detect_currency(receipt_text)
+    return "INTL" if cur and cur != "USD" else DEFAULT_DATE_LOCALE
+
+
+def extract_date(lines, locale=DEFAULT_DATE_LOCALE):
     cands = []
     for ln in lines:
         t = ln["text"]
@@ -210,7 +304,7 @@ def extract_date(lines):
                 if _valid_ymd(g[0], g[1], g[2]):
                     cands.append(("%04d-%02d-%02d" % (g[0], g[1], g[2]), False, ln))
             else:
-                res = _disambiguate_numeric(g[0], g[1], g[2])
+                res = _disambiguate_numeric(g[0], g[1], g[2], locale)
                 if res:
                     cands.append((res[0], res[1], ln))
         for m in DATE_DMON_RE.finditer(t):        # 14 Mar 2026
@@ -296,7 +390,7 @@ def extract_fields(ocr):
     receipt_text = "\n".join(ln["text"] for ln in lines)
 
     total = extract_total(lines, receipt_text)
-    date = extract_date(lines)
+    date = extract_date(lines, date_locale_for(receipt_text))
     merchant = extract_merchant(lines, height)
 
     # body (line-item) texts: lines that carry a money amount and are not a label line
@@ -305,7 +399,7 @@ def extract_fields(ocr):
         amts = amounts_in(ln["text"])
         U = ln["text"].upper()
         if amts and not POS_TOTAL_RE.search(U) and not NEG_LABEL_RE.search(U):
-            desc = MONEY_RE.sub("", ln["text"]).strip(" .-\t")
+            desc = MONEY_INT_RE.sub("", MONEY_RE.sub("", ln["text"])).strip(" .-\t")
             if alpha_ratio(ln["text"]) > 0.2:
                 items.append({"description": desc, "amount": round(amts[-1], 2)})
         body_texts.append(ln["text"])

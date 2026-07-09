@@ -32,7 +32,7 @@ no real choice between "use AI" and "keep your data private." LifePilot
 removes that trade-off entirely by making it a non-choice: every model runs
 on the device itself.
 
-**What it does.** LifePilot is a calm, minimal wellness app built around five
+**What it does.** LifePilot is a calm, minimal wellness app built around four
 features, each backed by its own on-device model:
 
 - **Overwhelm Manager** — describe what's overwhelming you in plain language;
@@ -48,9 +48,6 @@ features, each backed by its own on-device model:
 - **Expense Scanner** — point the camera at a receipt; on-device OCR plus a
   trained field-extraction model tags line items and categorizes spend, no
   photo or text ever uploaded.
-- **Health Import** — parse medical PDFs (blood tests, fitness reports)
-  entirely on-device into a private on-device history. Not part of the demo
-  path this round — Energy/Hydration integration is planned, not yet built.
 
 **Why it's real, not a slogan.** "Privacy-first" is a claim most apps make
 and few actually build for. LifePilot's models are exported to ExecuTorch
@@ -83,12 +80,12 @@ own data.
 health tracking, expense tracking — already has cloud-based incumbents.
 None of them can credibly claim zero data exposure, because their business
 model or architecture doesn't allow it. LifePilot demonstrates that a full
-five-feature AI product doesn't need a backend to be genuinely useful — a
+four-feature AI product doesn't need a backend to be genuinely useful — a
 meaningful wedge for privacy-conscious users, regulated environments
-(health data), and anyone who wants AI features without an ongoing account
-relationship with a company.
+(financial data), and anyone who wants AI features without an ongoing
+account relationship with a company.
 
-**Completeness.** All five features are built, integrated with real trained
+**Completeness.** All four features are built, integrated with real trained
 models (not stubs), and running end-to-end on a physical Android device —
 including the on-device Llama 3.2 agent workflow generating real multi-step
 task breakdowns in airplane mode. See the demo video for the full walkthrough.

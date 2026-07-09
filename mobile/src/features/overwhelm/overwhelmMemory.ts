@@ -40,10 +40,29 @@ function todayKey(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * Confirmed on-device 2026-07-06: an entry saved by an OLDER, incompatible schema
+ * (`{task, steps, topic, savedAt}` — pre-dates embeddings/progress-tracking) was still
+ * sitting in this file from an earlier session. Every consumer here assumes the current
+ * MemoryEntry shape (`taskText`, `completedSteps`, etc.), so a legacy entry's missing
+ * `taskText` crashed the keyword-overlap fallback (`e.taskText.toLowerCase()` on
+ * `undefined`) — which is the ACTIVE path right now since the embeddings model is
+ * separately broken (see [[lifepilot-executorch-native-tokenizer-bug]]). Filtering here,
+ * the single choke point every read goes through, protects every caller at once rather
+ * than guarding each call site individually.
+ */
+function isValidEntry(e: unknown): e is MemoryEntry {
+  return (
+    typeof e === 'object' && e !== null &&
+    typeof (e as MemoryEntry).taskText === 'string' && (e as MemoryEntry).taskText.length > 0
+  );
+}
+
 async function load(): Promise<MemoryEntry[]> {
   try {
     const raw = await FileSystem.readAsStringAsync(MEMORY_PATH);
-    return JSON.parse(raw) as MemoryEntry[];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter(isValidEntry) : [];
   } catch {
     return [];
   }

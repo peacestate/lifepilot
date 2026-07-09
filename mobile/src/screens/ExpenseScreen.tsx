@@ -80,8 +80,10 @@ export function ExpenseScreen() {
               merchantLabel={C.manualMerchant}
               amountLabel={C.manualAmount}
               categoryLabel={C.manualCategory}
+              currencyLabel={C.manualCurrency}
               dateLabel={C.manualDate}
               submitLabel={C.manualSubmit}
+              defaultCurrency={s.records[0]?.currency}
             />
             <View style={styles.manualCancelGap}>
               <SecondaryButton label="Cancel" onPress={() => setShowManual(false)} />
@@ -201,6 +203,18 @@ function ReviewBody({ fields, onSave, onRetake }: {
         ))}
       </View>
 
+      {fields.lineItems.length > 0 && (
+        <View style={styles.itemsCard}>
+          <Text style={styles.fieldLabel}>{C.itemsDetected}</Text>
+          {fields.lineItems.map((it, i) => (
+            <View key={`${it.description}-${i}`} style={styles.itemRow}>
+              <Text style={styles.itemDesc} numberOfLines={1}>{it.description || '—'}</Text>
+              <Text style={styles.itemAmount}>{moneyLabel({ amount: it.amount, currency, currencyAssumed: false })}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
       <View style={styles.ctaGap}>
         <PrimaryButton label={C.save}
           onPress={() => onSave({ merchant, amount: parseFloat(amount) || 0, dateISO: dateISO || null, currency, category })} />
@@ -233,7 +247,7 @@ function EditField({ label, value, onChange, flagged, keyboardType, placeholder 
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: color.background },
-  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[6], paddingBottom: space[7] },
+  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[3], paddingBottom: space[7] },
   content: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' },
   center: { paddingTop: space[8], alignItems: 'center' },
   dim: { ...type.subtext, color: color.textSecondary, textAlign: 'center' },
@@ -277,6 +291,10 @@ const styles = StyleSheet.create({
     padding: layout.screenPaddingH, paddingBottom: space[7],
   },
   manualCancelGap: { marginTop: space[3] },
+  itemsCard: { marginTop: space[2] },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', gap: space[3], paddingVertical: space[1] },
+  itemDesc: { ...type.subtext, color: color.textSecondary, flex: 1 },
+  itemAmount: { ...type.subtext, color: color.textPrimary },
 });
 
 export default ExpenseScreen;

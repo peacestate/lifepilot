@@ -1,6 +1,6 @@
 /**
  * LiteParse result types — mirrors @llamaindex/liteparse-wasm JSON output.
- * Used by liteparseService.ts and consumers (pdfSource, healthImportUtils).
+ * Used by liteparseService.ts and consumers (pdfSource).
  */
 
 export type BBox = [x: number, y: number, width: number, height: number];

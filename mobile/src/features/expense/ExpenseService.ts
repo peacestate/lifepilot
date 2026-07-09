@@ -8,6 +8,7 @@
  * NO React, NO network. Input = OcrResult (native on-device OCR), output = ExpenseFields.
  */
 
+import { CODE_TO_SYMBOL, ISO_CODE_ALTERNATION, SYMBOL_TO_CODE, ZERO_DECIMAL_CODES } from './currencies';
 import type { ExpenseFields, Field, LineItem, Money, OcrLine, OcrResult } from './types';
 
 /* ── frozen config (== expense_eval.py) ────────────────────────────────────── */
@@ -24,8 +25,27 @@ const CURRENCY_MAP: Record<string, string> = {
   '₹': 'INR', RS: 'INR', 'RS.': 'INR', INR: 'INR',
 };
 const CURRENCY_RE = /(US\$|RS\.?|USD|EUR|GBP|INR|[$€£₹])/i;
+// Extended, world-wide currency markers (see ./currencies.ts). Multi-char symbols
+// ("US$", "R$") must come before the single-char class so they win the alternation.
+const SYMBOL_ALTERNATION = 'US\\$|CA\\$|NZ\\$|HK\\$|NT\\$|R\\$|A\\$|S\\$|[$€£₹¥₩₺₽₫₴₦₱฿₲₪₡₸₮₭֏₼₾৳₨]';
+const EXT_SYMBOL_RE = new RegExp(`(${SYMBOL_ALTERNATION})`, 'i');
+// ISO 4217 codes are only trusted when adjacent to a digit ("ALL 500", "500 ZAR"),
+// since several codes double as English words (ALL, TOP, CUP, TRY, …).
+const ISO_CODE_RE = new RegExp(`\\b(${ISO_CODE_ALTERNATION})\\b`, 'gi');
 const MONEY_RE = /\d{1,3}(?:[.,]\d{3})*[.,]\d{2}(?!\d)|\d+[.,]\d{2}(?!\d)/g;
-const POS_TOTAL_RE = /\b(GRAND\s*TOTAL|TOTAL\s+DUE|AMOUNT\s+DUE|BALANCE\s+DUE|TOTAL)\b/;
+// Whole-number amounts (₹ 500, Rs 1,500, ¥800, KES 2,000, 500/-) count as money only
+// with explicit context — a currency marker before, or the Indian "/-" suffix after —
+// so bare quantities/phone digits stay excluded. Handles Indian grouping (1,50,000).
+const MONEY_INT_RE = new RegExp(
+  `(?:RS\\.?|${SYMBOL_ALTERNATION}|\\b(?:${ISO_CODE_ALTERNATION})\\b)\\s*(\\d{1,3}(?:,\\d{2,3})*|\\d+)(?![.,]?\\d)` +
+  `|(\\d{1,3}(?:,\\d{2,3})*|\\d+)\\s*\\/-`,
+  'gi',
+);
+// Bare integers (2+ digits) — trusted ONLY on a positively-labelled total line
+// ("Net Amount 1500") after date substrings are removed.
+const MONEY_INT_BARE_RE = /\b(\d{1,3}(?:,\d{2,3})+|\d{2,7})\b(?![.,]?\d)/g;
+const INR_SLASH_RE = /\d\s*\/-/;
+const POS_TOTAL_RE = /\b(GRAND\s*TOTAL|TOTAL\s+DUE|AMOUNT\s+DUE|BALANCE\s+DUE|NET\s+AMOUNT|NET\s+AMT|NET\s+PAYABLE|AMOUNT\s+PAYABLE|BILL\s+AMOUNT|AMOUNT\s+PAID|PAID\s+AMOUNT|TOTAL)\b/;
 const SUBTOTAL_RE = /\bSUB\s*-?\s*TOTAL\b/;
 const NEG_LABEL_RE = /\b(SUBTOTAL|TAX|VAT|GST|HST|CHANGE|CASH|TENDER|TENDERED|TIP|GRATUITY|CARD|VISA|MASTERCARD|MASTER|AMEX|DEBIT|CREDIT|AUTH|APPROVAL|ACCOUNT|POINTS|SAVINGS|DISCOUNT|ROUNDING|DEPOSIT)\b/;
 const MONTHS: Record<string, number> = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
@@ -63,31 +83,54 @@ function parseAmount(numStr: string): number {
 }
 function detectCurrency(t: string): string | null {
   const m = CURRENCY_RE.exec(t);
-  if (!m) return null;
-  return CURRENCY_MAP[m[1].toUpperCase()] ?? CURRENCY_MAP[m[1]] ?? null;
+  if (m) return CURRENCY_MAP[m[1].toUpperCase()] ?? CURRENCY_MAP[m[1]] ?? null;
+  const sym = EXT_SYMBOL_RE.exec(t);
+  if (sym) {
+    const code = SYMBOL_TO_CODE[sym[1].toUpperCase()] ?? SYMBOL_TO_CODE[sym[1]];
+    if (code) return code;
+  }
+  // ISO codes: only when a digit sits directly next to the code (skipping space/./:).
+  for (const im of t.matchAll(ISO_CODE_RE)) {
+    const start = im.index ?? 0;
+    const before = t.slice(0, start).replace(/[\s.:]+$/, '');
+    const after = t.slice(start + im[0].length).replace(/^[\s.:]+/, '');
+    if (/\d$/.test(before) || /^\d/.test(after)) return im[1].toUpperCase();
+  }
+  if (INR_SLASH_RE.test(t)) return 'INR';
+  return null;
 }
 function amountsIn(t: string): number[] {
-  return (t.match(MONEY_RE) ?? []).map(parseAmount);
+  const out = (t.match(MONEY_RE) ?? []).map(parseAmount);
+  for (const m of t.matchAll(MONEY_INT_RE)) out.push(parseAmount(m[1] ?? m[2]));
+  return out;
 }
 
 /* ── §3 total ──────────────────────────────────────────────────────────────── */
 export function extractTotal(lines: OcrLine[], receiptText: string): Field<Money> {
-  type C = { amount: number; y: number; conf: number; positive: boolean; excluded: boolean; currency: string | null; src: string };
+  type C = { amount: number; y: number; conf: number; positive: boolean; excluded: boolean; bare: boolean; currency: string | null; src: string };
   const cands: C[] = [];
   for (const ln of lines) {
     const U = ln.text.toUpperCase();
-    const amts = amountsIn(ln.text);
-    if (!amts.length) continue;
     const positive = POS_TOTAL_RE.test(U) && !SUBTOTAL_RE.test(U);
     const excluded = NEG_LABEL_RE.test(U) && !positive;
-    for (const a of amts) cands.push({ amount: a, y: ln.y, conf: ln.conf, positive, excluded, currency: detectCurrency(ln.text), src: ln.text });
+    let amts = amountsIn(ln.text);
+    let bare = false;
+    if (!amts.length && positive) {
+      // Labelled total line with no decimal/currency-marked amount ("Net Amount 1500"):
+      // trust bare integers, but strip date substrings first so "12/05/2026" can't leak in.
+      const noDates = ln.text.replace(DATE_NUM_RE, ' ').replace(DATE_DMON_RE, ' ').replace(DATE_MOND_RE, ' ');
+      amts = (noDates.match(MONEY_INT_BARE_RE) ?? []).map(parseAmount);
+      bare = amts.length > 0;
+    }
+    if (!amts.length) continue;
+    for (const a of amts) cands.push({ amount: a, y: ln.y, conf: ln.conf, positive, excluded, bare, currency: detectCurrency(ln.text), src: ln.text });
   }
   if (!cands.length) return { value: null, confidence: 0, source: 'no amount found' };
   const labelled = cands.filter((c) => c.positive);
   let pick: C; let structural: number;
   if (labelled.length) {
     pick = labelled.reduce((a, b) => (b.amount > a.amount || (b.amount === a.amount && b.y > a.y) ? b : a));
-    structural = 0.9;
+    structural = pick.bare ? 0.75 : 0.9;
   } else {
     const pool = cands.filter((c) => !c.excluded);
     pick = (pool.length ? pool : cands).reduce((a, b) => (b.amount > a.amount ? b : a));
@@ -105,24 +148,30 @@ function validYmd(y: number, m: number, d: number): boolean {
   const dim = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][m - 1];
   return d <= dim && y >= 2000 && y <= EXPENSE.REFERENCE_YEAR + 1;
 }
-function disambiguate(a: number, b: number, c: number): [string, boolean] | null {
+function disambiguate(a: number, b: number, c: number, locale: 'US' | 'INTL'): [string, boolean] | null {
   const year = c >= 1000 ? c : 2000 + c;
   let day: number, mon: number, amb: boolean;
   if (a > 12 && b <= 12) [day, mon, amb] = [a, b, false];
   else if (b > 12 && a <= 12) [mon, day, amb] = [a, b, false];
-  else if (a <= 12 && b <= 12) { if (EXPENSE.DEFAULT_DATE_LOCALE === 'US') [mon, day] = [a, b]; else [day, mon] = [a, b]; amb = true; }
+  else if (a <= 12 && b <= 12) { if (locale === 'US') [mon, day] = [a, b]; else [day, mon] = [a, b]; amb = true; }
   else return null;
   if (!validYmd(year, mon, day)) return null;
   return [`${year.toString().padStart(4, '0')}-${mon.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`, amb];
 }
-export function extractDate(lines: OcrLine[]): Field<string> & { ambiguous: boolean } {
+/** Month-first only makes sense for US receipts — any detected non-USD currency
+ * (₹, €, £, ¥, KES, …) means day-first is the safer read for ambiguous dates. */
+export function dateLocaleFor(receiptText: string): 'US' | 'INTL' {
+  const cur = detectCurrency(receiptText);
+  return cur && cur !== 'USD' ? 'INTL' : EXPENSE.DEFAULT_DATE_LOCALE;
+}
+export function extractDate(lines: OcrLine[], locale: 'US' | 'INTL' = EXPENSE.DEFAULT_DATE_LOCALE): Field<string> & { ambiguous: boolean } {
   const cands: Array<[string, boolean, OcrLine]> = [];
   for (const ln of lines) {
     const t = ln.text;
     for (const m of t.matchAll(DATE_NUM_RE)) {
       const g = m.slice(1, 4).map(Number);
       if (m[1].length === 4) { if (validYmd(g[0], g[1], g[2])) cands.push([`${g[0]}-${String(g[1]).padStart(2, '0')}-${String(g[2]).padStart(2, '0')}`, false, ln]); }
-      else { const r = disambiguate(g[0], g[1], g[2]); if (r) cands.push([r[0], r[1], ln]); }
+      else { const r = disambiguate(g[0], g[1], g[2], locale); if (r) cands.push([r[0], r[1], ln]); }
     }
     for (const m of t.matchAll(DATE_DMON_RE)) { const mon = MONTHS[m[2].slice(0, 3).toUpperCase()]; if (mon && validYmd(+m[3], mon, +m[1])) cands.push([`${m[3]}-${String(mon).padStart(2, '0')}-${String(+m[1]).padStart(2, '0')}`, false, ln]); }
     for (const m of t.matchAll(DATE_MOND_RE)) { const mon = MONTHS[m[1].slice(0, 3).toUpperCase()]; if (mon && validYmd(+m[3], mon, +m[2])) cands.push([`${m[3]}-${String(mon).padStart(2, '0')}-${String(+m[2]).padStart(2, '0')}`, false, ln]); }
@@ -175,7 +224,7 @@ export function extractFields(ocr: OcrResult): ExpenseFields {
   const receiptText = lines.map((l) => l.text).join('\n');
 
   const total = extractTotal(lines, receiptText);
-  const date = extractDate(lines);
+  const date = extractDate(lines, dateLocaleFor(receiptText));
   const merchant = extractMerchant(lines, height);
 
   const items: LineItem[] = [];
@@ -184,7 +233,7 @@ export function extractFields(ocr: OcrResult): ExpenseFields {
     const amts = amountsIn(ln.text);
     const U = ln.text.toUpperCase();
     if (amts.length && !POS_TOTAL_RE.test(U) && !NEG_LABEL_RE.test(U)) {
-      const desc = ln.text.replace(MONEY_RE, '').replace(/[\s.\-\t]+$/, '').trim();
+      const desc = ln.text.replace(MONEY_RE, '').replace(MONEY_INT_RE, '').replace(/[\s.\-\t]+$/, '').trim();
       if (alphaRatio(ln.text) > 0.2) items.push({ description: desc, amount: round2(amts[amts.length - 1]) });
     }
     bodyTexts.push(ln.text);
@@ -198,4 +247,8 @@ export function extractFields(ocr: OcrResult): ExpenseFields {
   return { ...fields, needsReview: review.length > 0, reviewFields: review };
 }
 
-export const moneyLabel = (m: Money) => `${m.currency === 'USD' ? '$' : m.currency === 'INR' ? '₹' : m.currency === 'EUR' ? '€' : m.currency === 'GBP' ? '£' : ''}${m.amount.toFixed(2)}`;
+export const moneyLabel = (m: Money) => {
+  const digits = ZERO_DECIMAL_CODES.has(m.currency) ? 0 : 2;
+  const sym = CODE_TO_SYMBOL[m.currency];
+  return sym ? `${sym}${m.amount.toFixed(digits)}` : `${m.currency} ${m.amount.toFixed(digits)}`;
+};

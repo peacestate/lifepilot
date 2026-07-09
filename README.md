@@ -17,7 +17,6 @@ submission — the video is.
 2. **Energy Planner** — a trained time-series model predicts a 24h energy curve from recent sleep/activity, surfacing a focus window and a wind-down window.
 3. **Hydration Tracker** — a trained regression model combines body metrics, activity, and (optionally) local weather/AQI into a personalized daily water target.
 4. **Expense Scanner** — camera or PDF receipt → on-device OCR → trained field-extraction + categorization models. Nothing photographed or parsed ever leaves the device.
-5. **Health Import** — parses medical PDFs (blood tests, fitness reports) entirely on-device, storing them to a private on-device history. Not part of the demo path this round — Energy/Hydration integration is planned, not yet built (today it stores; nothing reads it back).
 
 **Smart Glasses (optional, v1 = audio-only)** — the phone stays the brain; the glasses are used as a plain Bluetooth audio sink for on-device TTS nudges. No Meta Wearables Toolkit, no capture, nothing routed through Meta's cloud — output-only, so it exposes nothing. No new model; reuses the four models above. See `docs/glasses-architecture.md`.
 

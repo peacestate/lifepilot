@@ -6,8 +6,8 @@
  * Dumb screen — all logic in useEnergyPredictor. The curve comes from the on-device
  * ExecuTorch model (heuristic fallback before export). NO network anywhere.
  */
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EnergyCurve } from '../components/EnergyCurve';
@@ -16,6 +16,7 @@ import { PrivacyFootnote } from '../components/PrivacyFootnote';
 import { ENERGY_SLEEP_TARGET_H } from '../features/energy/energyCalibration';
 import type { WeeklyHealthInsight } from '../features/energy/energyCalibration';
 import type { DataSourceSummary, FieldStatus } from '../features/energy/healthSource';
+import { energyStore } from '../features/energy/energyStore';
 import { useEnergyPredictor } from '../features/energy/useEnergyPredictor';
 import type { EnergyWindow } from '../features/energy/types';
 import { color, layout, radii, space, type } from '../theme/tokens';
@@ -31,10 +32,21 @@ const fmtHour = (h: number) => {
 export function EnergyScreen() {
   const {
     loading, forecast, needsManualEntry, recordCheckIn, submitManualEntry, skipManualEntry,
-    dataSources, weeklyInsight,
+    dataSources, weeklyInsight, refresh,
   } = useEnergyPredictor();
   const [checkedIn, setCheckedIn] = useState(false);
   const [manualOverride, setManualOverride] = useState(false);
+  const [laptopWorkDay, setLaptopWorkDay] = useState(() => energyStore.isLaptopWorkDay());
+
+  useEffect(() => {
+    void energyStore.ready();
+  }, []);
+
+  const handleLaptopToggle = async (value: boolean) => {
+    setLaptopWorkDay(value);
+    energyStore.setLaptopWorkDay(value);
+    await refresh();
+  };
 
   const onCheckIn = (actual: number) => {
     setCheckedIn(true);
@@ -96,6 +108,26 @@ export function EnergyScreen() {
           <Text style={styles.title} accessibilityRole="header">
             {calibrating ? C.calibratingTitle : C.title}
           </Text>
+
+          {!calibrating && (
+            <View style={styles.contextToggle}>
+              <View style={styles.contextLabel}>
+                <Text style={styles.contextLabelText} maxFontSizeMultiplier={1.4}>
+                  Spent day on laptop?
+                </Text>
+                <Text style={styles.contextHint} maxFontSizeMultiplier={1.3}>
+                  Helps adjust accuracy when phone didn't move much
+                </Text>
+              </View>
+              <Switch
+                value={laptopWorkDay}
+                onValueChange={handleLaptopToggle}
+                trackColor={{ false: color.surfaceAlt, true: color.accent }}
+                thumbColor={color.surface}
+                accessibilityLabel="Laptop work day"
+              />
+            </View>
+          )}
 
           <View style={styles.curveWrap} accessibilityLabel={calibrating ? undefined : summary}>
             <EnergyCurve
@@ -282,9 +314,25 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: color.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dim: { ...type.subtext, color: color.textSecondary },
-  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[6], paddingBottom: space[7] },
+  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[3], paddingBottom: space[7] },
   content: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' },
   title: { ...type.h1, color: color.textPrimary },
+  contextToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: space[5],
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
+    backgroundColor: color.surface,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: color.border,
+    minHeight: layout.minTouchTarget,
+  },
+  contextLabel: { flex: 1 },
+  contextLabelText: { ...type.body, color: color.textPrimary },
+  contextHint: { ...type.caption, color: color.textSecondary, marginTop: 2 },
   curveWrap: { marginTop: space[6], alignItems: 'center' },
   calibrating: { ...type.subtext, color: color.textSecondary, textAlign: 'center', marginTop: space[5] },
   summary: { ...type.subtext, color: color.textSecondary, marginTop: space[5], textAlign: 'center' },

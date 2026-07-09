@@ -100,10 +100,13 @@ function blocksToOcrResult(blocks: MlkitBlock[]): OcrResult {
     for (const line of block.lines) {
       if (!line.text.trim()) continue;
       const h = line.bounding.height;
+      const w = line.bounding.width;
       lines.push({
         text: line.text.trim(),
         y: line.bounding.top,
         h: h > 0 ? h : undefined,
+        x: line.bounding.left,
+        w: w > 0 ? w : undefined,
         conf: 0.9, // ML Kit doesn't expose per-line confidence; 0.9 reflects typical accuracy
       });
     }

@@ -27,7 +27,6 @@ import type { FeatureKey } from './src/screens/HomeScreen';
 import EnergyScreen from './src/screens/EnergyScreen';
 import ExpenseScreen from './src/screens/ExpenseScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { HealthImportScreen } from './src/screens/HealthImportScreen';
 import HydrationScreen from './src/screens/HydrationScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PastTasksScreen } from './src/screens/PastTasksScreen';
@@ -42,7 +41,6 @@ const FEATURE_TITLES: Partial<Record<FeatureKey, string>> = {
   energy: 'Energy Planner',
   hydration: 'Hydration',
   expense: 'Expense Scanner',
-  // healthImport has its own back button — not wrapped in FeatureShell
 };
 
 /**
@@ -60,7 +58,9 @@ function FeatureShell({ title, onBack, children }: { title: string; onBack: () =
   const insets = useSafeAreaInsets();
   return (
     <View style={shellStyles.root}>
-      <View style={[shellStyles.header, { paddingTop: insets.top + space[2] }]}>
+      {/* space[5] (was space[2]): owner found the back pill sat too close to the
+          status bar on-device (2026-07-08) — give the header more breathing room. */}
+      <View style={[shellStyles.header, { paddingTop: insets.top + space[5] }]}>
         <Pressable
           onPress={onBack}
           hitSlop={12}
@@ -183,7 +183,6 @@ export default function App() {
               {screen === 'expense' && <ExpenseScreen />}
             </FeatureShell>
           )}
-          {screen === 'healthImport' && <HealthImportScreen onBack={goHome} />}
           {screen === 'settings' && <SettingsScreen onBack={goHome} />}
           {screen === 'overwhelmHistory' && <PastTasksScreen onBack={() => setScreen('overwhelm')} />}
         </View>

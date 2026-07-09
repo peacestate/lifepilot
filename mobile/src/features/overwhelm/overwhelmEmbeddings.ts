@@ -62,24 +62,27 @@ async function provision(): Promise<{ modelSource: string; tokenizerSource: stri
   return { modelSource: modelUri, tokenizerSource: tokenizerUri };
 }
 
-let modulePromise: Promise<{ forward: (text: string) => Promise<number[]> } | null> | null = null;
-
-async function getModule() {
-  if (!modulePromise) {
-    modulePromise = (async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires, import/no-unresolved
-        const { TextEmbeddingsModule } = require('react-native-executorch');
-        if (!TextEmbeddingsModule) return null;
-        const { modelSource, tokenizerSource } = await provision();
-        await TextEmbeddingsModule.load(modelSource, tokenizerSource);
-        return TextEmbeddingsModule;
-      } catch {
-        return null; // not provisioned yet / runtime mismatch → caller falls back
-      }
-    })();
-  }
-  return modulePromise;
+/**
+ * HARD-DISABLED (confirmed on-device 2026-07-08). `TextEmbeddingsModule.load()` shares
+ * one native runtime with Llama on the pinned 0.4.10 stack, and its tokenizer path hits
+ * the same broken `HuggingFaceTokenizer.initHybrid` JNI gap as Whisper (upstream #507).
+ * The load half-initializes, wedges the shared runtime, and every subsequent Llama
+ * generate() then hangs (watchdog timeout, 0 tokens) or SIGSEGVs the process. Because
+ * memory.retrieve() short-circuits on empty memory BEFORE calling embed(), this only
+ * fired once at least one plan had been saved — exactly the observed "only the very
+ * first generation after install works" failure. Reproduced across three fixes that did
+ * NOT resolve it (serialization-chain release, watchdog salvage, prompt shrink); the
+ * fail matrix was: no-memory → works, any-memory → hang/crash.
+ *
+ * So on this runtime pin, semantic embeddings are OFF: embed() returns null without
+ * ever touching the native module, and overwhelmMemory falls back to its keyword-overlap
+ * scoring (overlapScore) — the retrieval path stays functional, just lexical instead of
+ * semantic. Re-enable only after the runtime pin moves past the initHybrid fix
+ * (react-native-executorch >= 0.7.0) AND an on-device two-generation test passes with
+ * populated memory.
+ */
+async function getModule(): Promise<{ forward: (text: string) => Promise<number[]> } | null> {
+  return null;
 }
 
 /** Embed a string into a 384-dim, L2-normalized vector, or null if unavailable. */

@@ -1,18 +1,15 @@
 /**
- * SettingsScreen — toggles for nudges, per-feature, quiet hours, weather mode.
- * Reads live state from nudgeCenter + hydrationStore; writes go back to those singletons.
- * No persistence beyond in-memory singletons in v1 (TODO: hook into persistence.ts).
+ * SettingsScreen — cross-cutting settings only: nudges, per-feature toggles, quiet
+ * hours, weather mode, and About. The Hydration profile (body mass, wake/sleep, units)
+ * lives with its feature now — set on first open of the Hydration screen and editable
+ * there via "Edit profile" — so Settings no longer skews hydration-heavy.
+ *
+ * Compact horizontal layout: label left, control right. The header/back button uses the
+ * same safe-area top inset as FeatureShell so it doesn't crowd the status bar.
  */
 import React, { useCallback, useState } from 'react';
-import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { nudgeCenter } from '../core/nudges/NudgeCenter';
 import type { NudgeFeature, NudgeSettings } from '../core/nudges/NudgeCenter';
@@ -22,6 +19,7 @@ import { color, layout, radii, space, type } from '../theme/tokens';
 type Props = { onBack: () => void };
 
 export function SettingsScreen({ onBack }: Props) {
+  const insets = useSafeAreaInsets();
   const [nudge, setNudge] = useState<NudgeSettings>(() => nudgeCenter.getSettings());
   const [weatherLive, setWeatherLive] = useState(
     () => hydrationStore.getProfile().weatherMode === 'live',
@@ -42,25 +40,26 @@ export function SettingsScreen({ onBack }: Props) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.content}>
-          {/* back */}
-          <Pressable
-            onPress={onBack}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-            style={({ pressed }) => [styles.backRow, pressed && styles.backPressed]}
-          >
-            <Text style={styles.backChevron}>‹</Text>
-            <Text style={styles.backLabel}>Back</Text>
-          </Pressable>
-
-          <Text style={styles.pageTitle} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
+    <View style={styles.root}>
+      {/* Header: "‹ Settings" as one vertically-centered row (matches FeatureShell's
+          "‹ Hydration"), padded below the status bar so it doesn't crowd the clock. */}
+      <View style={[styles.header, { paddingTop: insets.top + space[5] }]}>
+        <Pressable
+          onPress={onBack}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+          style={({ pressed }) => [styles.backRow, pressed && styles.backPressed]}
+        >
+          <Text style={styles.backChevron}>‹</Text>
+          <Text style={styles.headerTitle} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
             Settings
           </Text>
+        </Pressable>
+      </View>
 
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.content}>
           {/* Nudges section */}
           <Section title="Nudges">
             <Row
@@ -125,16 +124,27 @@ export function SettingsScreen({ onBack }: Props) {
               No accounts. No servers. No data collection.
             </Text>
           </Section>
+
+          {/* Attribution — required by the Llama 3.2 Community License (the Overwhelm
+              Manager runs Meta's Llama 3.2 1B on-device). "Built with Llama" + the
+              copyright notice keep the app commercially compliant. */}
+          <Section title="Credits">
+            <Text style={styles.aboutText} maxFontSizeMultiplier={1.4}>
+              Built with Llama.{'\n'}
+              The Overwhelm Manager runs Meta's Llama 3.2 1B, licensed under the Llama 3.2
+              Community License, Copyright © Meta Platforms, Inc. All Rights Reserved.
+            </Text>
+          </Section>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={sectionStyles.wrap}>
-      <Text style={sectionStyles.title} maxFontSizeMultiplier={1.4}>{title}</Text>
+      <Text style={sectionStyles.title} maxFontSizeMultiplier={1.2}>{title}</Text>
       <View style={sectionStyles.card}>{children}</View>
     </View>
   );
@@ -163,7 +173,7 @@ function Row({
         </Text>
         {sub && (
           <Text style={[rowStyles.sub, disabled && rowStyles.dimmed]} maxFontSizeMultiplier={1.4}>
-            {sub}
+          {sub}
           </Text>
         )}
       </View>
@@ -197,30 +207,39 @@ const rowStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: color.background },
+  root: { flex: 1, backgroundColor: color.background },
+  header: {
+    paddingHorizontal: layout.screenPaddingH,
+    paddingBottom: space[4],
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: space[1],
+    minHeight: layout.minTouchTarget,
+    paddingRight: space[3],
+  },
+  backPressed: { opacity: 0.5 },
+  // fontSize 26 optically pairs the chevron with the h2 title; padding off + the row's
+  // alignItems:center keep "‹" and "Settings" on the same line.
+  backChevron: { fontSize: 26, color: color.accent, includeFontPadding: false },
+  // translateY nudges "Settings" down onto the chevron's center axis — the tight text
+  // box (includeFontPadding off) otherwise rides ~2px high because of the "g" descender.
+  headerTitle: { ...type.h2, color: color.textPrimary, includeFontPadding: false, transform: [{ translateY: 2 }] },
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenPaddingH,
-    paddingTop: space[5],
-    paddingBottom: space[8],
+    paddingTop: space[4],
+    paddingBottom: space[6],
   },
   content: {
     width: '100%',
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
   },
-  backRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space[1],
-    marginBottom: space[5],
-    minHeight: layout.minTouchTarget,
-    alignSelf: 'flex-start',
-  },
-  backPressed: { opacity: 0.5 },
-  backChevron: { fontSize: 22, color: color.accent },
-  backLabel: { ...type.body, color: color.accent },
-  pageTitle: { ...type.h1, color: color.textPrimary, marginBottom: space[6] },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[4] },
   infoLabel: { ...type.body, color: color.textPrimary },
   infoValue: { ...type.body, color: color.textSecondary },

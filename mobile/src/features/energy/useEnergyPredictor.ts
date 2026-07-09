@@ -15,6 +15,7 @@ import {
 } from './energyCalibration';
 import type { WeeklyHealthInsight } from './energyCalibration';
 import { buildManualEntry, saveManualEntry } from './manualDayEntry';
+import { energyStore } from './energyStore';
 import { predictCurve } from './energyModel';
 import { getHealthWindow, populationBaselineWindow } from './healthSource';
 import type { DataSourceSummary } from './healthSource';
@@ -90,7 +91,20 @@ export function useEnergyPredictor(): UseEnergyPredictor {
     // per-user "learning" is this deterministic bias, computed from the user's own
     // logged check-ins vs. what was predicted for them at that hour.
     const calibration = await computeCalibration();
-    const curve = applyCalibration(rawCurve, calibration);
+    let curve = applyCalibration(rawCurve, calibration);
+
+    // Context adjustment: if user reported spending the day on laptop/desk work,
+    // boost energy during typical work hours (9am-6pm) to account for high engagement
+    // that the step-count sensor couldn't detect.
+    const laptopDay = energyStore.isLaptopWorkDay();
+    if (laptopDay) {
+      curve = curve.map((v, h) => {
+        if (h >= 9 && h < 18) {
+          return Math.min(100, Math.round(v + 8));
+        }
+        return v;
+      });
+    }
 
     await saveDayRecord({
       dayFeatures: days[days.length - 1] as unknown as Record<string, unknown>,

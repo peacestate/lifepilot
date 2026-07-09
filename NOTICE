@@ -1,0 +1,22 @@
+LifePilot — Third-Party Notices
+================================
+
+Built with Llama.
+
+The Overwhelm Manager feature runs Meta's Llama 3.2 1B language model
+fully on-device (via ExecuTorch). LifePilot does not redistribute the
+model weights in this repository; they are provisioned separately per
+mobile/RUNBOOK.md.
+
+  Llama 3.2 is licensed under the Llama 3.2 Community License,
+  Copyright © Meta Platforms, Inc. All Rights Reserved.
+
+Full license text:
+  https://github.com/meta-llama/llama-models/blob/main/models/llama3_2/LICENSE
+
+Use of the Llama Materials is subject to Meta's Acceptable Use Policy:
+  https://www.llama.com/llama3_2/use-policy
+
+This notice satisfies the "Built with Llama" attribution and license-notice
+requirements of the Llama 3.2 Community License. LifePilot's own source code
+is licensed under the MIT License (see LICENSE).

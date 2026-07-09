@@ -7,7 +7,10 @@
     "scheme": "lifepilot",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/icon.png",
     "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#F7F8F6"
     },
     "assetBundlePatterns": [
@@ -27,6 +30,7 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.health.READ_SLEEP",
         "android.permission.health.READ_STEPS",
         "android.permission.health.READ_HEART_RATE"
@@ -52,6 +56,14 @@
         }
       ],
       "expo-health-connect",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "LifePilot uses your approximate location only to fetch local weather for a more accurate hydration target. It's grid-rounded, sent to no one but the weather service, and never stored off-device.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
       [
         "expo-build-properties",
         {

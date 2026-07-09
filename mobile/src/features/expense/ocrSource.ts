@@ -11,6 +11,7 @@
  * PRIVACY: zero network. All inference runs on-device.
  */
 import { recognizeFromUri } from '../../core/ocr/mlkitOcr';
+import { mergeOcrRows } from '../../core/ocr/rowMerge';
 import type { OcrResult } from './types';
 
 /** Minimal placeholder so the UI pipeline works before native build. */
@@ -35,7 +36,9 @@ export async function recognizeReceipt(imageUri?: string): Promise<OcrResult> {
     const result = await recognizeFromUri(imageUri);
     // If ML Kit returned nothing (module not ready), fall through to stub
     if (result.lines.length === 0) return STUB;
-    return result;
+    // Stitch same-band fragments (table columns, split headers) into single rows
+    // so the parser sees "Total 1500.00", not "Total" and "1500.00" separately.
+    return mergeOcrRows(result);
   } catch {
     return STUB;
   }
@@ -43,5 +46,5 @@ export async function recognizeReceipt(imageUri?: string): Promise<OcrResult> {
 
 /** Accept a pre-built OcrResult from the PDF path (pdfSource.pickDocument). */
 export async function recognizeFromOcrResult(result: OcrResult): Promise<OcrResult> {
-  return result;
+  return mergeOcrRows(result);
 }

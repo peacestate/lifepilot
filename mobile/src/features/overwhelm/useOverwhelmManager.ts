@@ -48,20 +48,18 @@ import { useSharedLlm } from '../../core/llm/LlamaProvider';
 import {
   buildResult,
   buildContextualPrompt,
-  categorizeUser,
-  evaluateQuality,
+  categorizeHeuristic,
   completedPortion,
-  parseCategory,
   parseSteps,
   toSteps,
   toSubSteps,
   subStepUser,
-  CATEGORIZE_SYSTEM_PROMPT,
   DECODING,
   STOP_TOKEN_ID,
   SUB_MAX_STEPS,
   SUBSTEP_SYSTEM_PROMPT,
 } from './OverwhelmService';
+import { overwhelmDraft } from './overwhelmDraft';
 import { overwhelmMemory } from './overwhelmMemory';
 import { isPowerConstrained } from '../../core/power/powerAwareness';
 import { nudgeOverwhelmStep } from '../../core/nudges/featureNudges';
@@ -91,17 +89,12 @@ const toSubMessages = (stepText: string, goal: string): ChatMessage[] => [
   { role: 'user', content: subStepUser(stepText, goal) },
 ];
 
-/** Messages for the separate category-classification call (OverwhelmService §categorize). */
-const toCategorizeMessages = (taskText: string): ChatMessage[] => [
-  { role: 'system', content: CATEGORIZE_SYSTEM_PROMPT },
-  { role: 'user', content: categorizeUser(taskText) },
-];
 
-// 'subrun' = generating sub-steps for a single step; 'categorizing' = the invisible
-// post-run classification call. Both kept distinct from 'run' so the screen stays on
-// the results list (neither re-triggers the full-screen "generating" state) but STILL
-// count as "busy" for the unmount-interrupt guard below (only 'idle' skips it).
-type Phase = 'idle' | 'warmup' | 'run' | 'subrun' | 'categorizing';
+// 'subrun' = generating sub-steps for a single step. Kept distinct from 'run' so the
+// screen stays on the results list (it doesn't re-trigger the full-screen "generating"
+// state) but STILL counts as "busy" for the unmount-interrupt guard below (only 'idle'
+// skips it). Post-run categorization is now a local keyword heuristic — no extra phase.
+type Phase = 'idle' | 'warmup' | 'run' | 'subrun';
 
 export type UseOverwhelmManager = {
   /** 'loading' | 'ready' | 'generating' | 'error' */
@@ -116,6 +109,10 @@ export type UseOverwhelmManager = {
   error: OverwhelmError | null;
   /** The last submitted text (kept so "Try again" / "Edit" need no retype). */
   lastInput: string;
+  /** A task from a run that never got to clean up after itself (native crash mid-generate). Null once dismissed/resumed. */
+  recoveredDraft: string | null;
+  /** Dismiss the recovered-draft banner without resuming it. */
+  dismissRecoveredDraft: () => void;
 
   /** Per-step breakdowns (the "tap a step to go deeper" feature). */
   breakdowns: Breakdowns;
@@ -148,6 +145,15 @@ export function useOverwhelmManager(): UseOverwhelmManager {
   const [runError, setRunError] = useState<OverwhelmError | null>(null);
   const [lastInput, setLastInput] = useState('');
   const [breakdowns, setBreakdowns] = useState<Breakdowns>({});
+  /** A task recovered from a prior run that never got to clean up after itself (native crash). */
+  const [recoveredDraft, setRecoveredDraft] = useState<string | null>(null);
+
+  // One-shot check on mount: was there an in-flight task when the app last died?
+  useEffect(() => {
+    void overwhelmDraft.take().then((input) => {
+      if (input) setRecoveredDraft(input);
+    });
+  }, []);
 
   const phaseRef = useRef<Phase>('idle');
   const responseRef = useRef<string>('');
@@ -276,12 +282,18 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     setPhase('idle');
   }, [setPhase]);
 
-  // --- run (multi-step workflow) -------------------------------------------
+  // --- run (single-generation workflow) ------------------------------------
   // Step 1: retrieve similar past tasks from on-device memory
   // Step 2: build contextual system prompt with past examples
-  // Step 3: generate steps (LLM inference)
-  // Step 4: evaluate quality — if too few steps, retry once with base prompt
-  // Step 5: save completed task + steps to memory for future personalization
+  // Step 3: generate steps — ONE watchdogged LLM inference (no auto-retry cascade)
+  // Step 4: if the result is usable, save task + steps to memory (category via
+  //         keyword heuristic, NOT a second generation) for future personalization
+  //
+  // REGRESSION FIX 2026-07-07: the "personalization" pass previously fired up to
+  // THREE full 1.2GB inferences per submission (main + quality-retry + LLM
+  // categorize) plus two embedding-model loads. Each extra native call was another
+  // chance for the pinned runtime to hang/segfault right after an apparently-good
+  // result — the "gives a response then crashes" the user reported. Now: one call.
   const run = useCallback(
     async (input: string) => {
       const trimmed = input.trim();
@@ -291,43 +303,43 @@ export function useOverwhelmManager(): UseOverwhelmManager {
       setResultKind(null);
       setSteps([]);
       setBreakdowns({});
+      setRecoveredDraft(null);
       responseRef.current = '';
       stoppedRef.current = false;
       setPhase('run');
+      void overwhelmDraft.save(trimmed);
+      const respLen = () => responseRef.current.length;
       try {
         // Step 1 + 2: retrieve memory → build contextual prompt
         const past = await overwhelmMemory.retrieve(trimmed);
         const systemPrompt = buildContextualPrompt(past);
 
-        // Step 3: generate
-        await safeGenerate(llm, toMessages(trimmed, systemPrompt));
+        // Step 3: generate — the ONE and only model call per submission (watchdogged so a
+        // never-resolving native promise can't hang the screen forever). We deliberately do
+        // NOT auto-retry or fire a separate categorize generation here anymore: each extra
+        // generation is a full 1.2GB-model inference and, under memory pressure, another
+        // chance for the native runtime to hang/segfault right after an apparently-good
+        // result. The user's manual "Try again" covers a weak first pass; categorization is
+        // now a cheap keyword heuristic (no model call). See OverwhelmService.categorizeHeuristic.
+        if ((await generateWatchdogged(llm, toMessages(trimmed, systemPrompt), respLen)) === 'timeout') {
+          // Orphaned native promise. If the model had already streamed a usable
+          // result before going quiet (finished-but-never-resolved, the common
+          // Mode A shape), the text is all we need — fall through to finalize()
+          // as a normal success instead of surfacing a bogus timeout error.
+          if (parseSteps(responseRef.current).length === 0) {
+            setPhase('idle');
+            setRunError({ kind: 'inference', message: TIMEOUT_MESSAGE });
+            return;
+          }
+        }
         finalize();
         if (stoppedRef.current) return;
 
-        // Step 4: evaluate quality; retry with base prompt if weak
-        if (evaluateQuality(responseRef.current) === 'retry') {
-          responseRef.current = '';
-          setSteps([]);
-          setPhase('run');
-          await safeGenerate(llm, toMessages(trimmed, buildContextualPrompt([])));
-          finalize();
-          if (stoppedRef.current) return;
-        }
-
-        // Step 5: auto-categorize (separate tiny call) + save to memory (only if usable steps)
+        // Step 4: save to memory for future personalization (only if the result is usable).
+        // Category is derived by keyword heuristic — no second/third generation.
         const finalSteps = parseSteps(responseRef.current);
         if (finalSteps.length >= 3) {
-          setPhase('categorizing'); // invisible to the user — results are already shown
-          let category = 'personal';
-          try {
-            await safeGenerate(llm, toCategorizeMessages(trimmed));
-            category = parseCategory(responseRef.current);
-          } catch {
-            // categorization failing is non-fatal — save with the default bucket.
-          } finally {
-            setPhase('idle');
-          }
-          void overwhelmMemory.save(trimmed, finalSteps, category);
+          void overwhelmMemory.save(trimmed, finalSteps, categorizeHeuristic(trimmed));
         }
       } catch (e) {
         setPhase('idle');
@@ -336,6 +348,11 @@ export function useOverwhelmManager(): UseOverwhelmManager {
           message:
             e instanceof Error ? e.message : 'Generation failed on this device.',
         });
+      } finally {
+        // Reached on any normal exit (done, stopped, or a catchable JS error) — a
+        // leftover draft on the NEXT mount means this line never ran, i.e. the
+        // process died mid-generate() (native crash, not a JS-catchable failure).
+        void overwhelmDraft.clear();
       }
     },
     [llm, finalize, setPhase],
@@ -350,6 +367,11 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     } catch {
       /* no-op */
     }
+    // Clear the recovery draft here too: if the native generate() promise is orphaned
+    // (see generateWatchdogged), run()'s finally never runs, so this is the only place
+    // the draft gets cleared after a manual Stop — otherwise the next launch would
+    // wrongly offer to resume a task the user already stopped.
+    void overwhelmDraft.clear();
     // Keep whatever streamed in so far, classified.
     finalize();
   }, [llm, finalize]);
@@ -373,14 +395,20 @@ export function useOverwhelmManager(): UseOverwhelmManager {
         [stepId]: { status: 'loading', steps: [] },
       }));
       try {
-        await safeGenerate(llm, toSubMessages(stepText, lastInput));
-        const subs = toSubSteps(parseSteps(responseRef.current), stepId).slice(
-          0,
-          SUB_MAX_STEPS,
+        const status = await generateWatchdogged(
+          llm,
+          toSubMessages(stepText, lastInput),
+          () => responseRef.current.length,
         );
+        // Parse whatever streamed in even on 'timeout' — an orphaned promise after a
+        // complete stream (Mode A) still leaves usable sub-steps in the response.
+        const subs = toSubSteps(parseSteps(responseRef.current), stepId).slice(0, SUB_MAX_STEPS);
         setBreakdowns((prev) => ({
           ...prev,
-          [stepId]: { status: subs.length ? 'done' : 'empty', steps: subs },
+          [stepId]: {
+            status: subs.length ? 'done' : status === 'timeout' ? 'error' : 'empty',
+            steps: subs,
+          },
         }));
         if (subs.length) {
           void overwhelmMemory.saveSubSteps(lastInput, stepText, subs.map((s) => s.text));
@@ -446,6 +474,8 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     progress: llm.downloadProgress ?? 0,
     error,
     lastInput,
+    recoveredDraft,
+    dismissRecoveredDraft: () => setRecoveredDraft(null),
     breakdowns,
     run,
     stop,
@@ -470,4 +500,72 @@ async function safeGenerate(
     throw new Error('react-native-executorch useLLM.generate is unavailable.');
   }
   await llm.generate(messages);
+}
+
+/** Shown when a generation is abandoned by the watchdog (native promise never resolved). */
+const TIMEOUT_MESSAGE =
+  'That took too long on this device — please free up memory (close other apps) and tap Try again.';
+
+/**
+ * Generation watchdog. PROVEN on-device 2026-07-07: `react-native-executorch@0.4.x`'s
+ * native `generate()` can finish its work (CPU goes idle) yet NEVER resolve the JS
+ * promise it returns — an orphaned-promise bug in the pinned native bridge. Diagnosed
+ * by the crash-recovery draft surviving a run (run()'s `finally` never executed) while
+ * the UI stayed stuck on "Thinking this through…" with the CPU at 0%. We can't patch the
+ * prebuilt `.so`, so instead of `await`-ing generate() directly (which can hang forever),
+ * we race it against a progress-aware timeout:
+ *   - every streamed token (response grows) resets the idle window (GEN_IDLE_MS), so a
+ *     legitimately slow-but-alive generation is never cut off;
+ *   - GEN_HARD_MS is an absolute ceiling regardless of streaming.
+ * On timeout we call interrupt() (verified safe on this stuck state — it recovered the
+ * UI without the historical LLM.kt segfault) and hand control back to the caller so it
+ * can show a retry instead of an infinite spinner. The abandoned generate() promise, if
+ * it ever settles later, is simply un-awaited and GC'd.
+ */
+const GEN_IDLE_MS = 45000;
+const GEN_HARD_MS = 150000;
+
+async function generateWatchdogged(
+  llm: { generate?: (messages: ChatMessage[]) => Promise<void>; interrupt?: () => void },
+  messages: ChatMessage[],
+  responseLen: () => number,
+): Promise<'ok' | 'timeout'> {
+  return await new Promise<'ok' | 'timeout'>((resolve) => {
+    let done = false;
+    const settle = (how: 'ok' | 'timeout') => {
+      if (done) return;
+      done = true;
+      clearInterval(timer);
+      if (how === 'timeout') {
+        try {
+          llm.interrupt?.();
+        } catch {
+          /* no-op — interrupt is best-effort */
+        }
+      }
+      resolve(how);
+    };
+
+    // Both fulfilment AND rejection mean the JS promise settled (JS is unblocked) → 'ok';
+    // the caller inspects the streamed text to decide success vs. empty vs. error.
+    safeGenerate(llm, messages).then(
+      () => settle('ok'),
+      () => settle('ok'),
+    );
+
+    let lastLen = responseLen();
+    let lastProgressAt = Date.now();
+    const startedAt = lastProgressAt;
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const len = responseLen();
+      if (len > lastLen) {
+        lastLen = len;
+        lastProgressAt = now;
+      }
+      if (now - lastProgressAt >= GEN_IDLE_MS || now - startedAt >= GEN_HARD_MS) {
+        settle('timeout');
+      }
+    }, 2000);
+  });
 }

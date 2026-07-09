@@ -26,7 +26,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MessageBlock } from '../components/MessageBlock';
-import { MicButton } from '../components/MicButton';
 import { OverwhelmInput } from '../components/OverwhelmInput';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
@@ -39,7 +38,6 @@ import { WeeklyInsightCard } from '../components/WeeklyInsightCard';
 import { computeWeeklyInsight, shouldShowWeeklyCard, type WeeklyInsight } from '../features/overwhelm/overwhelmInsights';
 import { overwhelmMemory } from '../features/overwhelm/overwhelmMemory';
 import { useOverwhelmManager } from '../features/overwhelm/useOverwhelmManager';
-import { useVoiceInput } from '../features/overwhelm/useVoiceInput';
 import { color, layout, space, type } from '../theme/tokens';
 import { COPY } from './overwhelmCopy';
 
@@ -114,38 +112,26 @@ export function OverwhelmManagerScreen({ onOpenHistory }: Props = {}) {
       return next;
     });
 
-  // ── body selection ────────────────────────────────────────────────────────
-  const body = (() => {
+  // ── results region: rendered BELOW the always-visible input, same screen ────
+  // The input form (prompt + text box + "Break it down") stays mounted at the top
+  // the whole time; the generated steps / streaming / empty / error state appear
+  // directly beneath it instead of replacing the whole view. "Start over" / "Edit"
+  // just collapse this region back to a blank input (phase → 'input').
+  const resultsRegion = phase !== 'submitted' ? null : (() => {
     // Hard model/runtime failure takes precedence (spec §1d, error variant).
     if (mgr.state === 'error') {
       return (
-        <>
-          <TaskSummary text={mgr.lastInput || text} variant="chip" />
-          <MessageBlock
-            glyph="◌"
-            message={COPY.error}
-            onRetry={onTryAgain}
-            onEdit={onEdit}
-            retryLabel={COPY.retryButton}
-            editLabel={COPY.editButton}
-          />
-        </>
-      );
-    }
-
-    if (phase === 'input') {
-      return (
-        <InputBody
-          text={text}
-          setText={setText}
-          onSubmit={onSubmit}
-          modelLoading={modelLoading}
-          onOpenHistory={onOpenHistory}
+        <MessageBlock
+          glyph="◌"
+          message={COPY.error}
+          onRetry={onTryAgain}
+          onEdit={onEdit}
+          retryLabel={COPY.retryButton}
+          editLabel={COPY.editButton}
         />
       );
     }
 
-    // phase === 'submitted'
     if (mgr.state === 'generating' || (mgr.state === 'ready' && mgr.resultKind === null)) {
       // Streaming / thinking: steps fill in progressively, with a real Stop.
       return (
@@ -161,17 +147,14 @@ export function OverwhelmManagerScreen({ onOpenHistory }: Props = {}) {
 
     if (mgr.state === 'ready' && mgr.resultKind === 'empty-result') {
       return (
-        <>
-          <TaskSummary text={mgr.lastInput} variant="chip" />
-          <MessageBlock
-            glyph="◌"
-            message={COPY.emptyResult}
-            onRetry={onTryAgain}
-            onEdit={onEdit}
-            retryLabel={COPY.retryButton}
-            editLabel={COPY.editButton}
-          />
-        </>
+        <MessageBlock
+          glyph="◌"
+          message={COPY.emptyResult}
+          onRetry={onTryAgain}
+          onEdit={onEdit}
+          retryLabel={COPY.retryButton}
+          editLabel={COPY.editButton}
+        />
       );
     }
 
@@ -191,8 +174,6 @@ export function OverwhelmManagerScreen({ onOpenHistory }: Props = {}) {
     );
   })();
 
-  const showFootnote = phase === 'input' || mgr.state === 'generating';
-
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <KeyboardAvoidingView
@@ -204,8 +185,25 @@ export function OverwhelmManagerScreen({ onOpenHistory }: Props = {}) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.content}>
-            {body}
-            {showFootnote && <PrivacyFootnote text={COPY.privacyFootnote} />}
+            <InputBody
+              text={text}
+              setText={setText}
+              onSubmit={onSubmit}
+              modelLoading={modelLoading}
+              busy={mgr.state === 'generating'}
+              onOpenHistory={onOpenHistory}
+              recoveredDraft={mgr.recoveredDraft}
+              onResumeDraft={(draft) => {
+                mgr.dismissRecoveredDraft();
+                setText(draft);
+                setCheckedIds(new Set());
+                setPhase('submitted');
+                void mgr.run(draft);
+              }}
+              onDismissDraft={mgr.dismissRecoveredDraft}
+            />
+            {resultsRegion && <View style={styles.resultsRegion}>{resultsRegion}</View>}
+            <PrivacyFootnote text={COPY.privacyFootnote} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -219,35 +217,29 @@ function InputBody({
   setText,
   onSubmit,
   modelLoading,
+  busy,
   onOpenHistory,
+  recoveredDraft,
+  onResumeDraft,
+  onDismissDraft,
 }: {
   text: string;
   setText: (t: string) => void;
   onSubmit: () => void;
   modelLoading: boolean;
+  busy: boolean;
   onOpenHistory?: () => void;
+  recoveredDraft: string | null;
+  onResumeDraft: (draft: string) => void;
+  onDismissDraft: () => void;
 }) {
-  const canSubmit = text.trim().length > 0 && !modelLoading;
-  const voice = useVoiceInput();
+  const canSubmit = text.trim().length > 0 && !modelLoading && !busy;
   const [weeklyInsight, setWeeklyInsight] = useState<WeeklyInsight | null>(null);
 
   useEffect(() => {
     if (!shouldShowWeeklyCard()) return;
     overwhelmMemory.list().then((entries) => setWeeklyInsight(computeWeeklyInsight(entries)));
   }, []);
-
-  const onMicPress = async () => {
-    if (voice.state === 'recording') {
-      const transcript = await voice.stopRecording();
-      if (transcript) {
-        setText(text.trim() ? `${text.trim()} ${transcript}` : transcript);
-      }
-      return;
-    }
-    if (voice.state === 'idle') {
-      void voice.startRecording();
-    }
-  };
 
   return (
     <View>
@@ -267,6 +259,29 @@ function InputBody({
         {COPY.subtext}
       </Text>
 
+      {recoveredDraft && (
+        <View style={styles.draftBanner}>
+          <Text style={styles.draftLabel} maxFontSizeMultiplier={1.4}>
+            {COPY.recoveredDraftLabel}
+          </Text>
+          <Text style={styles.draftText} numberOfLines={2} maxFontSizeMultiplier={1.4}>
+            {recoveredDraft}
+          </Text>
+          <View style={styles.draftActions}>
+            <Pressable onPress={onDismissDraft} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.draftDismiss} maxFontSizeMultiplier={1.4}>
+                {COPY.recoveredDraftDismiss}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => onResumeDraft(recoveredDraft)} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.draftResume} maxFontSizeMultiplier={1.4}>
+                {COPY.recoveredDraftResume}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
       {weeklyInsight && (
         <View style={styles.weeklyGap}>
           <WeeklyInsightCard insight={weeklyInsight} />
@@ -278,15 +293,8 @@ function InputBody({
           value={text}
           onChangeText={setText}
           placeholder={COPY.placeholder}
+          editable={!busy}
         />
-        <View style={styles.micRow}>
-          <MicButton state={voice.state} onPress={onMicPress} />
-        </View>
-        {voice.error && (
-          <Text style={styles.voiceErrorLine} maxFontSizeMultiplier={1.6}>
-            {voice.error.message}
-          </Text>
-        )}
       </View>
 
       <View style={styles.ctaGap}>
@@ -416,7 +424,9 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: layout.screenPaddingH,
-    paddingTop: space[7],
+    // space[3] (was space[7]): FeatureShell's header already reserves space above;
+    // owner found the gap below the back pill too tall on-device (2026-07-08).
+    paddingTop: space[3],
     paddingBottom: space[6],
   },
   content: {
@@ -434,15 +444,28 @@ const styles = StyleSheet.create({
     marginTop: space[3],
   },
   weeklyGap: { marginTop: space[5] },
-  inputGap: { marginTop: space[5] },
-  micRow: { alignItems: 'flex-end', marginTop: space[2] },
-  voiceErrorLine: {
-    ...type.caption,
-    color: color.error,
-    textAlign: 'right',
+  draftBanner: {
+    marginTop: space[5],
+    padding: space[4],
+    borderRadius: 12,
+    backgroundColor: color.surfaceAlt,
+    borderWidth: 1,
+    borderColor: color.border,
+    gap: space[2],
+  },
+  draftLabel: { ...type.caption, color: color.textSecondary },
+  draftText: { ...type.body, color: color.textPrimary },
+  draftActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: space[5],
     marginTop: space[1],
   },
+  draftDismiss: { ...type.caption, color: color.textSecondary, fontWeight: '600' as const },
+  draftResume: { ...type.caption, color: color.accent, fontWeight: '600' as const },
+  inputGap: { marginTop: space[5] },
   ctaGap: { marginTop: space[5] },
+  resultsRegion: { marginTop: space[6] },
   prepLine: {
     ...type.caption,
     color: color.textSecondary,

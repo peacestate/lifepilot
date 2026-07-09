@@ -6,8 +6,11 @@
  * locked in: future scans of that merchant auto-assign the learned category, confidently
  * (no review flag), without re-asking.
  *
- * v1 in-memory, same seam as expenseStore — local-only, never networked.
+ * Persisted like expenseStore: on-device JSON file via core/storage/jsonFileStore
+ * (sandboxed documentDirectory) — local-only, never networked. Loads once at import;
+ * every learning update writes through, so what the user taught survives restarts.
  */
+import { createJsonFileStore } from '../../core/storage/jsonFileStore';
 
 const LOCK_THRESHOLD = 3;
 
@@ -16,11 +19,31 @@ type PendingCorrection = { category: string; count: number };
 let locked: Record<string, string> = {};
 let pending: Record<string, PendingCorrection> = {};
 
+// In-memory (newer) learning wins over the loaded copy on the rare pre-load race.
+const disk = createJsonFileStore<{ locked: Record<string, string>; pending: Record<string, PendingCorrection> }>(
+  'lp_expense_categories.json',
+  (loaded) => {
+    locked = { ...(loaded.locked ?? {}), ...locked };
+    pending = { ...(loaded.pending ?? {}), ...pending };
+  },
+);
+void disk.ready();
+
+const persist = () => disk.save({ locked, pending });
+
 function normalize(merchant: string): string {
   return merchant.trim().toLowerCase();
 }
 
 export const expenseCategorizor = {
+  /** Resolves once the learned mappings have loaded from disk. */
+  ready(): Promise<void> {
+    return disk.ready();
+  },
+  /** Awaits pending write-through (tests). */
+  flush(): Promise<void> {
+    return disk.flush();
+  },
   /** Learned category for this merchant, or null if none is locked in yet. */
   suggest(merchant: string | null | undefined): string | null {
     if (!merchant) return null;
@@ -37,7 +60,10 @@ export const expenseCategorizor = {
     const key = normalize(merchant);
     if (locked[key] === confirmedCategory) return; // already learned, nothing new
     if (suggestedCategory === confirmedCategory) {
-      delete pending[key]; // user agreed — don't let stale corrections linger
+      if (key in pending) {
+        delete pending[key]; // user agreed — don't let stale corrections linger
+        persist();
+      }
       return;
     }
 
@@ -53,6 +79,7 @@ export const expenseCategorizor = {
     } else {
       pending[key] = { category: confirmedCategory, count: 1 };
     }
+    persist();
   },
 
   /** All locked-in merchant -> category mappings, e.g. for a settings/debug view. */
@@ -63,5 +90,6 @@ export const expenseCategorizor = {
   reset(): void {
     locked = {};
     pending = {};
+    persist();
   },
 };

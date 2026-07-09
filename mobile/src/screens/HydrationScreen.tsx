@@ -7,11 +7,12 @@
  * the on-device ExecuTorch model (falling back to the deterministic engine offline).
  * NO network here; weather (opt-in only) is isolated in the feature's weatherSource.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CustomAmountModal } from '../components/CustomAmountModal';
+import { HydrationProfileModal } from '../components/HydrationProfileModal';
 import { HydrationRing } from '../components/HydrationRing';
 import { IntakeQuickAdd } from '../components/IntakeQuickAdd';
 import { PrivacyFootnote } from '../components/PrivacyFootnote';
@@ -25,6 +26,24 @@ export function HydrationScreen() {
   const h = useHydrationTracker();
   const units = h.profile.units;
   const [customOpen, setCustomOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileFirstRun, setProfileFirstRun] = useState(false);
+
+  // First open of Hydration (profile never filled/skipped) → prompt the profile modal
+  // once. autoPrompted guards against re-opening after the user skips within a session.
+  const autoPrompted = useRef(false);
+  useEffect(() => {
+    if (!h.loading && !autoPrompted.current && h.profile.profileComplete !== true) {
+      autoPrompted.current = true;
+      setProfileFirstRun(true);
+      setProfileOpen(true);
+    }
+  }, [h.loading, h.profile.profileComplete]);
+
+  const openEditProfile = () => {
+    setProfileFirstRun(false);
+    setProfileOpen(true);
+  };
 
   const fmt = useMemo(() => {
     return (ml: number) => {
@@ -64,7 +83,12 @@ export function HydrationScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
-          <Text style={styles.title} accessibilityRole="header">{C.title}</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} accessibilityRole="header">{C.title}</Text>
+            <Pressable onPress={openEditProfile} hitSlop={12} accessibilityRole="button" accessibilityLabel="Edit hydration profile">
+              <Text style={styles.editLink} maxFontSizeMultiplier={1.4}>Edit profile</Text>
+            </Pressable>
+          </View>
 
           {h.reminder && (
             <View style={styles.reminderCard}>
@@ -148,6 +172,24 @@ export function HydrationScreen() {
           setCustomOpen(false);
         }}
       />
+
+      <HydrationProfileModal
+        visible={profileOpen}
+        firstRun={profileFirstRun}
+        initial={h.profile}
+        onSave={(patch) => {
+          h.updateProfile({ ...patch, profileComplete: true });
+          setProfileOpen(false);
+        }}
+        onDismiss={() => {
+          // Skip on first run still marks the profile done (defaults stand) so it
+          // won't re-prompt; Cancel on an edit just closes.
+          if (profileFirstRun && h.profile.profileComplete !== true) {
+            h.updateProfile({ profileComplete: true });
+          }
+          setProfileOpen(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -156,9 +198,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: color.background },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   dim: { ...type.subtext, color: color.textSecondary },
-  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[6], paddingBottom: space[7] },
+  scroll: { flexGrow: 1, paddingHorizontal: layout.screenPaddingH, paddingTop: space[3], paddingBottom: space[7] },
   content: { width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' },
   title: { ...type.h1, color: color.textPrimary },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  editLink: { ...type.caption, color: color.accent, fontWeight: '600' as const },
   ringWrap: { marginTop: space[6], marginBottom: space[5] },
   statusLine: { ...type.subtext, color: color.textSecondary, textAlign: 'center' },
   statusChip: {

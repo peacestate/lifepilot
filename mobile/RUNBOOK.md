@@ -1,7 +1,7 @@
 # LifePilot — Run the app
 
 > **For hackathon judges:** the linked **demo video is the primary evidence this
-> app works end-to-end** — it shows all 5 features running live, on-device, in
+> app works end-to-end** — it shows all 4 features running live, on-device, in
 > airplane mode. The instructions below let a technically-inclined reviewer
 > reproduce that themselves, but they are not required to judge the submission.
 > They exist for credibility/completeness, not as a live judging step.
@@ -364,13 +364,81 @@ SDK 53.
   2026-07-02. Not fixed because this version has no exposed lever to fix it with, and
   bumping the pinned version this close to the deadline is its own risk.
 - **`@llamaindex/liteparse-wasm` is pinned as `"*"` in `mobile/package.json`** — no version
-  lock on a WASM PDF-parsing dependency Health Import depends on. Could silently pick up a
-  breaking change on a fresh `npm install`. Low priority since Health Import isn't in the
-  demo path this round.
+  lock on the WASM PDF-parsing dependency Expense Scanner's `pdfSource.ts` uses for PDF
+  receipt uploads (iOS table-aware path; Android falls back to the regex extractor).
+  Could silently pick up a breaking change on a fresh `npm install`.
 - **iOS LiteParse (Polygen AOT) path is unconfigured** — `app.json` has no Polygen plugin
   registered, despite code comments in `liteparseService.ts` describing an "iOS AOT" path
   as ready. Moot in practice (this project is Android-only, no test iPhone), but the
   comments overstate what's actually wired if anyone builds for iOS later.
+- **Voice input (Whisper STT) is permanently unavailable on-device** —
+  `org.pytorch.executorch.HuggingFaceTokenizer.initHybrid` throws
+  `"No implementation found... is the library loaded?"` the moment `useSpeechToText`
+  tries to load, because the native `.so` in `react-native-executorch@0.4.10`'s
+  JitPack-built Android package is missing that JNI symbol. Confirmed as a real upstream
+  bug, not our code: same class, same error, filed as
+  [software-mansion/react-native-executorch#507](https://github.com/software-mansion/react-native-executorch/issues/507).
+  **The fix exists upstream** — v0.7.0's release notes ("switched a library for
+  tokenization, resulting in 64% reduction in package size") replaced this tokenizer
+  entirely; confirmed via GitHub code search that `HuggingFaceTokenizer` no longer
+  appears anywhere in the current upstream source tree. Not applied here because v0.7.0
+  is three minor versions past our pin, and v0.6.0 alone bumps the ExecuTorch runtime to
+  v1.0.0 — breaking every custom-exported `.pte` (Energy Predictor, Hydration Predictor,
+  Expense line-tagger/category tagger) per [[lifepilot-executorch-version-pin]]'s
+  no-forward-compat rule. Fixing it for real means re-exporting all three custom models
+  on Kaggle against the new runtime, plus re-verifying the bundled Llama/Whisper/MiniLM
+  registry entries (renamed/restructured across v0.8.0–v0.9.0). Owner decision
+  2026-07-06: not worth the risk 5 days from the hackathon deadline — ship the honest UX
+  (`MicButton` shows a visibly disabled state + `"Voice input isn't available on this
+  device — type your task instead."`) and revisit the version bump post-hackathon.
+  Llama (separate JS-side tokenizer) and the rest of the app are unaffected; MiniLM
+  embeddings silently fall back to keyword-overlap matching for the same underlying
+  reason.
+- **Overwhelm Manager generation is unreliable under severe system memory pressure —
+  TWO distinct failure modes, both mitigated (neither fixable from our side).** Root of
+  both: the pinned `react-native-executorch@0.4.x` native LLM runtime does not degrade
+  gracefully when the device is memory-starved. Observed repeatedly on-device 2026-07-06/07
+  on a Tecno CK9n (8 GB) sitting at **80–160 MB free RAM with 1.3–2 GB in swap** (WhatsApp,
+  Chrome, banking apps etc. all resident). `adb shell 'am force-stop'`-ing the heavy apps
+  frees ~1 GB and makes runs behave; swiping them from the recents switcher does NOT (HiOS
+  keeps them cached).
+    - **Mode A — orphaned JS promise (the common one).** The native `generate()` finishes
+      (or stalls) but NEVER resolves the JS promise it returned. PROVEN 2026-07-07: `adb
+      shell top` showed the app at **0% CPU** (done computing) while the UI stayed stuck on
+      "Thinking this through…" indefinitely (observed 15+ min on one PID), and our own
+      crash-recovery draft file (`overwhelm_draft.json`) survived the whole run — i.e.
+      `run()`'s `finally` never executed, so `await safeGenerate(...)` never returned.
+      Tapping **Stop** recovered the UI cleanly (and did NOT segfault), confirming the JS
+      thread was alive and only that one promise was orphaned. **Mitigation shipped:** a
+      generation **watchdog** (`generateWatchdogged` in `useOverwhelmManager.ts`) races
+      `generate()` against a progress-aware timeout — every streamed token resets a 45 s
+      idle window (`GEN_IDLE_MS`), with a 150 s hard ceiling (`GEN_HARD_MS`). On timeout it
+      calls `interrupt()` and returns control so the screen shows a "took too long — free
+      memory and Try again" retry instead of an infinite spinner. `stop()` now also clears
+      the draft (its own `finally` may never run for the same orphaned-promise reason).
+    - **Mode B — process death.** Either a native `SIGSEGV` (`code 2 SEGV_ACCERR`, tombstone
+      backtrace rooted in `libexecutorch_jni.so`'s XNNPACK path:
+      `pthreadpool_parallelize_1d_tile_1d` → `XNNExecutor::forward` → `TextDecoderRunner::step`
+      → `example::Runner::generate` — a real memory-access bug in the prebuilt `.so`, NOT an
+      `lmkd` kill), OR a plain OS memory-reclaim kill when the app is backgrounded mid-run on
+      this starved device. Either way the process dies with no catchable JS exception.
+      **Mitigation shipped:** `overwhelmDraft.ts` persists the typed task the instant a run
+      starts; a leftover file on next launch means the process died mid-`generate()`, and
+      `useOverwhelmManager`'s `recoveredDraft` + `OverwhelmScreen`'s banner ("The app closed
+      before finishing your last task" / Resume·Discard) recover the input instead of losing it.
+  Why not fix upstream: our pin predates upstream's `GlobalThreadPool` threading rework
+  ([PR #603](https://github.com/software-mansion/react-native-executorch/pull/603), merged
+  2025-09-24) — consistent with an immature threading/lifecycle path here — but bumping the
+  pin breaks every custom `.pte` per the voice-input bullet above, so it's out of scope this
+  close to the deadline. **Verification status:** Mode B's draft-recovery banner is verified
+  on-device (seen firing with a REAL orphaned draft on 2026-07-07 — "Clean my room" — plus a
+  `run-as` simulated draft on 2026-07-06; Resume/Discard both work, file is one-shot). The
+  Mode A watchdog is implemented + typechecks clean + loads without regression, but its 45 s
+  auto-recovery has NOT yet been directly observed firing on-device, because this test device
+  is so memory-starved that the process keeps hitting Mode B (dying) before the 45 s window
+  elapses. Re-verify the watchdog on a device with more free RAM / a charged battery: submit
+  a task under moderate memory pressure and confirm the UI flips to the retry screen at ~45 s
+  of no streamed tokens instead of spinning forever.
 
 ## adb gotchas (all confirmed workarounds, not guesses)
 - Git-bash mangles device-side absolute paths — `export MSYS_NO_PATHCONV=1`

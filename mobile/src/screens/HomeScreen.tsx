@@ -7,17 +7,18 @@
 import React, { useEffect, useState } from 'react';
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { computeLifeInsight, type LifeInsight } from '../core/lifeEngine';
+import { insightSignature, lifeInsightDismissal } from '../core/lifeInsightDismissal';
 import { color, elevation, layout, radii, space, type } from '../theme/tokens';
 
-export type FeatureKey = 'overwhelm' | 'energy' | 'hydration' | 'expense' | 'healthImport';
+export type FeatureKey = 'overwhelm' | 'energy' | 'hydration' | 'expense';
 type Props = {
   onNavigate: (screen: FeatureKey | 'settings') => void;
 };
@@ -54,12 +55,6 @@ const CARDS: Card[] = [
     title: 'Expense Scanner',
     sub: 'Scan receipts or upload PDFs — all on-device',
   },
-  {
-    key: 'healthImport',
-    glyph: '◍',
-    title: 'Health Import',
-    sub: 'Import your own health PDFs — parsed privately on your phone',
-  },
 ];
 
 export function HomeScreen({ onNavigate }: Props) {
@@ -67,13 +62,32 @@ export function HomeScreen({ onNavigate }: Props) {
 
   useEffect(() => {
     let alive = true;
-    void computeLifeInsight().then((i) => { if (alive) setInsight(i); });
+    void (async () => {
+      const i = await computeLifeInsight();
+      await lifeInsightDismissal.ready();
+      if (!alive) return;
+      // Hide it if this exact insight was dismissed before; a changed insight shows again.
+      setInsight(i && lifeInsightDismissal.isDismissed(insightSignature(i.sentences)) ? undefined : i);
+    })();
     return () => { alive = false; };
   }, []);
 
+  const dismissInsight = () => {
+    if (insight) lifeInsightDismissal.dismiss(insightSignature(insight.sentences));
+    setInsight(undefined);
+  };
+
+  // RN's built-in SafeAreaView is a no-op on Android (same lesson as App.tsx's
+  // FeatureShell), so the wordmark rendered flush under the status bar on-device.
+  // Pad by the real inset instead — owner asked for the header to sit lower (2026-07-08).
+  const insets = useSafeAreaInsets();
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+    <View style={styles.safe}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + space[6] }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           {/* header */}
           <View style={styles.header}>
@@ -94,7 +108,7 @@ export function HomeScreen({ onNavigate }: Props) {
             </Pressable>
           </View>
 
-          {insight && <LifeInsightCard insight={insight} />}
+          {insight && <LifeInsightCard insight={insight} onDismiss={dismissInsight} />}
 
           {/* feature cards */}
           <View style={styles.cards}>
@@ -104,17 +118,28 @@ export function HomeScreen({ onNavigate }: Props) {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 /** The cross-feature insight — Energy + Hydration + Overwhelm talking to each other. */
-function LifeInsightCard({ insight }: { insight: LifeInsight }) {
+function LifeInsightCard({ insight, onDismiss }: { insight: LifeInsight; onDismiss: () => void }) {
   return (
     <View style={styles.insightCard} accessibilityRole="summary">
-      {insight.sentences.map((s, i) => (
-        <Text key={i} style={styles.insightText} maxFontSizeMultiplier={1.4}>{s}</Text>
-      ))}
+      <View style={styles.insightBody}>
+        {insight.sentences.map((s, i) => (
+          <Text key={i} style={styles.insightText} maxFontSizeMultiplier={1.4}>{s}</Text>
+        ))}
+      </View>
+      <Pressable
+        onPress={onDismiss}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss"
+        style={({ pressed }) => [styles.insightDismiss, pressed && styles.gearPressed]}
+      >
+        <Text style={styles.insightDismissGlyph}>×</Text>
+      </Pressable>
     </View>
   );
 }
@@ -180,9 +205,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: space[4],
     marginBottom: space[5],
-    gap: space[1],
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: space[2],
   },
+  insightBody: { flex: 1, gap: space[1] },
   insightText: { ...type.body, color: color.textPrimary },
+  insightDismiss: {
+    width: 28,
+    height: 28,
+    marginTop: -space[1],
+    marginRight: -space[1],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  insightDismissGlyph: { fontSize: 22, color: color.textTertiary, lineHeight: 24 },
   cards: { gap: space[3] },
   card: {
     backgroundColor: color.surface,

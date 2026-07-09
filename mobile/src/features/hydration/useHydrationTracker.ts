@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { applyCalibration, computeCalibration, computeWeeklyInsight, saveDayRecord } from './hydrationCalibration';
+import { getCoarseLocation } from './coarseLocation';
 import { buildTarget, decideNudge, engineComponents } from './HydrationEngine';
 import { predictComponents } from './hydrationModel';
 import { decideReminder } from './hydrationReminder';
@@ -70,8 +71,13 @@ export function useHydrationTracker(
 
   const recompute = useCallback(async (p: HydrationProfile) => {
     setLoading(true);
-    // 1) conditions (offline default; live only if opted in — getCoarseLocation wired later)
-    const cond = await getConditions(p.weatherMode, p);
+    // 1) conditions (offline default; live only if opted in). getCoarseLocation is passed
+    // ONLY in live mode, so offline never triggers a location-permission prompt.
+    const cond = await getConditions(
+      p.weatherMode,
+      p,
+      p.weatherMode === 'live' ? getCoarseLocation : undefined,
+    );
     setConditions(cond);
 
     // 2) assemble inputs
@@ -133,7 +139,18 @@ export function useHydrationTracker(
   }, [activity?.activeMinutes, activity?.workoutIntensity, activity?.steps]);
 
   useEffect(() => {
-    void recompute(profile);
+    let alive = true;
+    // Wait for the persisted profile + today's log to load from disk, THEN compute —
+    // otherwise the first target would use the default profile (70 kg) and the ring
+    // would show 0 ml even though the user logged drinks earlier today.
+    void hydrationStore.ready().then(() => {
+      if (!alive) return;
+      const p = hydrationStore.getProfile();
+      setProfile({ ...p });
+      setIntake([...hydrationStore.getToday()]);
+      void recompute(p);
+    });
+    return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recompute]);
 
