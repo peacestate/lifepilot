@@ -18,7 +18,7 @@ data, ever.** This is the cross-cutting layer all four AI features share.
 | Registry client | `mobile/src/core/modelRegistry/ModelRegistry.ts` | resolve / check / download / verify / activate / rollback |
 | Release server | `backend/model_registry/` (FastAPI) | serves the catalog + artifacts (**non-user-data only**) |
 | Served catalog | `backend/model_registry/registry.json` | what you edit to publish |
-| Exports | `ml/export/kaggle_export_*.py` | produce the `.pte` + manifest you publish |
+| Exports | `ml/export/export_*.py` | produce the `.pte` + manifest you publish |
 
 ## The five guarantees (enforced in code)
 1. **Bundled-first** — the app always has a working model per feature; it never *needs* an update.
@@ -37,7 +37,7 @@ data, ever.** This is the cross-cutting layer all four AI features share.
 ## Releasing a new model — the workflow
 *(Example: improving the Hydration model to `1.1.0`.)*
 
-1. **Export** on Kaggle (off your 8 GB PC): run the feature's `ml/export/kaggle_export_*.py`,
+1. **Export** on the AMD ROCm notebook (off your 8 GB PC): run the feature's `ml/export/export_*.py`,
    which produces `<model>.pte` + `manifest.json` (with `sha256`, `bytes`, `executorchVersion`).
    Keep `EXECUTORCH_REF` = the runtime's pin (currently **v0.6.0**) or the app will reject it.
 2. **Publish the artifact** to the release server:

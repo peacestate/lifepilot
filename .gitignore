@@ -20,8 +20,6 @@ ml/test/__pycache__/
 /models/
 
 # Credentials — never commit
-.kaggle/
-kaggle.json
 .env*
 
 # Misc

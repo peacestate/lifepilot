@@ -22,7 +22,7 @@ FastAPI app is just the simplest local version. A CDN with access logs disabled 
 private host.
 
 ## Release a model
-1. Export on Kaggle (`ml/export/kaggle_export_*.py`) → `.pte` + `manifest.json`.
+1. Export on the AMD ROCm notebook (`ml/export/export_*.py`) → `.pte` + `manifest.json`.
 2. Copy to `models/<id>/<version>/`.
 3. Add a descriptor (bumped semver + `sha256` + `bytes`) to `registry.json`.
 4. Apps pick it up on their next opt-in check. Keep old versions for rollback.

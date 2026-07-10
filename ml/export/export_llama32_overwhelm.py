@@ -1,20 +1,20 @@
 # ---------------------------------------------------------------------------
 # LifePilot — Overwhelm Manager
-# Kaggle GPU export: Llama 3.2 1B Instruct (INT4) -> ExecuTorch .pte
+# GPU export: Llama 3.2 1B Instruct (INT4) -> ExecuTorch .pte
 # ---------------------------------------------------------------------------
 # WHERE TO RUN
-#   Kaggle Notebook, Accelerator = GPU (T4 x2 or P100). Use the account that
+#   AMD ROCm notebook, Accelerator = GPU (T4 x2 or P100). Use the account that
 #   still has GPU quota left (the image-generation one). Internet must be ON
 #   (Settings -> Internet) so it can clone executorch and pull the checkpoint.
 #
 # DO NOT RUN THIS ON THE 8 GB DEV PC. Exporting a 1B model needs ~12-16 GB RAM.
-# Kaggle gives ~30 GB RAM + GPU, which is why we export there.
+# AMD MI300X gives ample GPU memory, which is why we export there.
 #
 # This script is the reproducible path for a CUSTOM/fine-tuned model. For v1 the
 # app simply ships the pre-exported HF QLoRA .pte (see ml/export/README.md and
 # docs/overwhelm-model-contract.md). Use this when you want your own model.
 #
-# Each "# %%" is a notebook cell — paste cell-by-cell into Kaggle, or "Run All".
+# Each "# %%" is a notebook cell — paste cell-by-cell into the notebook, or "Run All".
 # ---------------------------------------------------------------------------
 
 # %% [markdown]
@@ -41,7 +41,7 @@ EXPORT_CONFIG = (
     else "examples/models/llama/config/llama_xnnpack_spinquant.yaml"
 )
 
-WORK   = "/kaggle/working"
+WORK   = "/tmp/lifepilot_export"
 ET_DIR = f"{WORK}/executorch"
 CKPT   = f"{WORK}/ckpt"
 OUT    = f"{WORK}/overwhelm_out"
@@ -49,19 +49,18 @@ os.makedirs(OUT, exist_ok=True)
 print("export ref:", EXECUTORCH_REF, "| quant:", QUANT, "| src:", SRC_REPO)
 
 # %% [markdown]
-# ## 1. HF token (Kaggle Secrets)
+# ## 1. HF token (notebook secret or env var)
 # Add-ons -> Secrets -> add `HF_TOKEN` (a Hugging Face token for an account that
 # has accepted the Llama 3.2 license). Never paste the token inline.
 
 # %%
-from kaggle_secrets import UserSecretsClient
-os.environ["HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
-assert os.environ["HF_TOKEN"], "HF_TOKEN secret is empty"
+# HF_TOKEN read from environment (notebook secret / env var); never paste inline
+assert os.environ.get("HF_TOKEN"), "Set HF_TOKEN (env var / notebook secret) before running"
 
 # %% [markdown]
 # ## 2. Clone ExecuTorch at the pinned tag + install
 # `install_executorch.sh` + the llama example requirements pull Torch/torchao
-# etc. This is the slow cell (~10-20 min on Kaggle).
+# etc. This is the slow cell (~10-20 min on the AMD ROCm notebook).
 
 # %%
 import subprocess, sys

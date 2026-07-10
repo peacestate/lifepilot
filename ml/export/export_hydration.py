@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # LifePilot — Hydration Tracker (feature #3)
-# Kaggle export: tiny MLP -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
+# GPU export: tiny MLP -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
 # ---------------------------------------------------------------------------
 # WHY A MODEL (owner directive): per docs/hydration-engine-contract.md §11, the
 # hydration target is now produced by an on-device ExecuTorch model, consistent
@@ -15,7 +15,7 @@
 # The deterministic engine (ml/test/hydration_eval.py / contract §1-§7) is now:
 #   (1) the TRAINING-DATA GENERATOR, (2) the safety clamp, (3) the offline fallback.
 #
-# WHERE TO RUN: Kaggle (GPU or CPU - the model is tiny). Internet ON to clone+build
+# WHERE TO RUN: the AMD ROCm notebook (GPU or CPU - the model is tiny). Internet ON to clone+build
 # executorch. DO NOT build on the 8 GB dev PC (machine-safety). No real user data.
 # Each "# %%" is a notebook cell.
 # ---------------------------------------------------------------------------
@@ -28,7 +28,7 @@ import os
 EXECUTORCH_REF = "v0.6.0"        # contract §11 — same pin as Overwhelm/Energy
 QUANTIZE = False                 # <50 KB model; int8 buys nothing
 SEED = 7; N = 120000; EPOCHS = 60
-WORK = "/kaggle/working"; ET_DIR = f"{WORK}/executorch"; OUT = f"{WORK}/hydration_out"
+WORK = "/tmp/lifepilot_export"; ET_DIR = f"{WORK}/executorch"; OUT = f"{WORK}/hydration_out"
 os.makedirs(OUT, exist_ok=True)
 
 # Install ExecuTorch (and its pinned torch==2.7.0) BEFORE importing torch anywhere

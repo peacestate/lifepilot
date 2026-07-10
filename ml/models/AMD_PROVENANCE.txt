@@ -1,0 +1,11 @@
+LifePilot on-device models — provenance
+built_utc: 2026-07-10T12:02:41.985956+00:00
+platform: AMD ROCm notebook (notebooks.amd.com)
+trained_on_gpu: 7.2.53211-e1a6bc5663   (torch.cuda.is_available and torch.version.hip)
+executorch: 0.6.0
+
+file  bytes  sha256
+energy_predictor.pte  44512  3d331b58678c3ed2bd1d9bbe61dd33cf5264c5f969c218f9089233c438864c67
+hydration_predictor.pte  11152  7ed4db8c12fde80dada35a9aac2070ce5414d1754e25419a5cbb6be981296956
+expense_line_tagger.pte  88724  7663fa6a56c65033c99a605a2c7de0cf39c020f7f7e6e9bea0613374a87f2f00
+expense_category.pte  87708  f6a867de3be3dc0c8cf22fe95fc0c21e36c9f7cf373298f5d21f3bc78a5dc657

@@ -11,15 +11,15 @@ to TRAIN + EXPORT all four shipped on-device .pte models on real AMD GPU compute
     expense_category.pte
 
 It just orchestrates the three existing, tested training scripts in this folder
-(kaggle_export_energy_predictor.py / _hydration.py / _expense_extractor.py) —
+(export_energy_predictor.py / _hydration.py / _expense_extractor.py) —
 it does NOT re-implement any model, so the artifacts stay identical to the
-Kaggle-tested pipeline, only now produced on AMD hardware.
+previously tested pipeline, only now produced on AMD hardware.
 
 USAGE (in a JupyterLab cell or terminal, from the ml/export/ folder):
 
     !python amd_notebook_run.py
 
-Then download /kaggle/working/amd_out/lifepilot-amd-models.zip (the 4 .pte +
+Then download /tmp/lifepilot_export/amd_out/lifepilot-amd-models.zip (the 4 .pte +
 a provenance.txt recording that they were built on AMD ROCm).
 
 Nothing here touches the network except the scripts' own `pip install
@@ -34,13 +34,13 @@ import sys
 from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-WORK = "/kaggle/working"           # the three scripts hardcode this path
+WORK = "/tmp/lifepilot_export"           # the three scripts hardcode this path
 OUT = os.path.join(WORK, "amd_out")
 
 SCRIPTS = [
-    ("energy",    "kaggle_export_energy_predictor.py", ["energy_out/energy_predictor.pte"]),
-    ("hydration", "kaggle_export_hydration.py",        ["hydration_out/hydration_predictor.pte"]),
-    ("expense",   "kaggle_export_expense_extractor.py",
+    ("energy",    "export_energy_predictor.py", ["energy_out/energy_predictor.pte"]),
+    ("hydration", "export_hydration.py",        ["hydration_out/hydration_predictor.pte"]),
+    ("expense",   "export_expense_extractor.py",
      ["expense_out/expense_line_tagger.pte", "expense_out/expense_category.pte"]),
 ]
 

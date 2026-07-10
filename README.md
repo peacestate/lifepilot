@@ -43,7 +43,6 @@ LifePilot/
 │     ├─ screens/ components/ features/ core/
 │     └─ models/           # per-feature manifest.json (the .pte files themselves are gitignored)
 ├─ backend/model_registry/ # versioned model catalog API — no user data, no inference
-├─ kaggle/                 # Kaggle kernel copies used for dev-time export debugging
 ├─ models/                 # local scratch: downloaded/exported .pte + build artifacts (gitignored)
 └─ docs/                   # architecture notes, model contracts, hackathon submission
 ```

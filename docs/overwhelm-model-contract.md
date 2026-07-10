@@ -19,7 +19,7 @@ Feature: user types what's overwhelming them → on-device **Llama 3.2 1B Instru
 - **CTO:** confirm the one thing in `§6` — pin `react-native-executorch` to the release
   whose bundled ExecuTorch matches the `.pte` (HF model = **ExecuTorch v0.6.0**, no
   forward compat). Everything else flows from that pin.
-- **AI/ML (me):** HF `.pte` is the v1 deliverable. A reproducible **Kaggle** export of a
+- **AI/ML (me):** HF `.pte` is the v1 deliverable. A reproducible GPU export of a
   custom model lives in `ml/export/` for when we want our own fine-tune. Eval harness in
   `ml/test/`.
 
@@ -30,7 +30,7 @@ Feature: user types what's overwhelming them → on-device **Llama 3.2 1B Instru
 | Source | Use | Why |
 |---|---|---|
 | **HF `software-mansion/react-native-executorch-llama-3.2` (QLoRA INT4)** | **v1 — ship this** | Already 4-bit, already matched to the `react-native-executorch` runtime, zero export risk. Unblocks the mobile dev today. |
-| **Our own Kaggle export** (`ml/export/`) | Later — custom/fine-tuned model | The owner's 8 GB PC cannot export a 1B model (needs ~12–16 GB). Kaggle GPU notebooks (~30 GB RAM + T4/P100) can. Not on the critical path for the first build. |
+| **Our own GPU export** (`ml/export/`) | Later — custom/fine-tuned model | The owner's 8 GB PC cannot export a 1B model (needs ~12–16 GB). AMD ROCm notebooks (~30 GB RAM + T4/P100) can. Not on the critical path for the first build. |
 
 Both must obey the **same I/O contract** (`§3`–`§4`) so the mobile code never changes
 when we swap the HF model for our own.
@@ -60,8 +60,8 @@ manifest.json                # {name, source, sha256, executorch_version, bytes}
 > download time and record the real name + sha256 in `manifest.json`. The mobile loader
 > reads `manifest.json`, never a hard-coded size.
 
-### 2b. Custom export — Kaggle output (later)
-The Kaggle notebook (`ml/export/kaggle_export_llama32_overwhelm.py`) produces the same
+### 2b. Custom export — GPU output (later)
+The AMD ROCm notebook (`ml/export/export_llama32_overwhelm.py`) produces the same
 file set from a Meta INT4 checkpoint, **pinned to the same ExecuTorch version as the
 runtime** (`§6`). Same filenames, same `manifest.json` shape → drop-in replacement.
 
@@ -173,11 +173,11 @@ model was exported with **ExecuTorch v0.6.0**.
 ➡️ **CTO action:** pick the `react-native-executorch` npm version whose bundled ExecuTorch
 runtime == the `.pte`'s export version, and pin it. Then:
 - v1: just use the HF QLoRA `.pte` (already v0.6.0-matched) — lowest risk.
-- Custom export: the Kaggle notebook's `EXECUTORCH_REF` variable **must be set to that same
+- Custom export: the AMD ROCm notebook's `EXECUTORCH_REF` variable **must be set to that same
   version/tag** before exporting, or the model won't load on device.
 
 If the CTO pins a newer `react-native-executorch`, tell me the ExecuTorch version it bundles
-and I'll re-export on Kaggle against that tag. **Mismatched versions are the #1 cause of
+and I'll re-export on the AMD ROCm notebook against that tag. **Mismatched versions are the #1 cause of
 "model won't load."**
 
 ---
@@ -186,8 +186,8 @@ and I'll re-export on Kaggle against that tag. **Mismatched versions are the #1 
 
 ```
 mobile/src/models/overwhelm/   llama3_2-1B-qlora.pte, tokenizer.json, tokenizer_config.json, manifest.json
-ml/export/                     kaggle_export_llama32_overwhelm.py  (Kaggle GPU notebook)
-ml/export/README.md            how to run the export on Kaggle
+ml/export/                     export_llama32_overwhelm.py  (AMD ROCm GPU notebook)
+ml/export/README.md            how to run the export on the AMD ROCm notebook
 ml/test/overwhelm_eval.py      20-task harness (step-count / format / latency)
 ml/test/tasks.json             the 20 representative test inputs
 ml/test/REPORT_TEMPLATE.md     the 20-task report to fill in
@@ -200,5 +200,5 @@ docs/overwhelm-model-contract.md   ← this file
 
 - App size: a ~1 GB in-binary model may breach store limits (CTO's flag). Decide
   ship-in-binary vs one-time consented download before *release* — does not block the build.
-- Whether to later fine-tune a smaller/faster custom model (the Kaggle path exists for this).
+- Whether to later fine-tune a smaller/faster custom model (the custom-export path exists for this).
 - QNN/HTP backend for faster decode if XNNPACK latency disappoints in real testing.

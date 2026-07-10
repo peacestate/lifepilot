@@ -10,7 +10,7 @@ README (the "quick win"). Fully on-device, no server, no telemetry (README golde
 
 ## 0. The honest call first: NO MODEL. This is a deterministic rules engine.
 
-**There is no `.pte` for Hydration. There is no Kaggle export. There is no tokenizer,
+**There is no `.pte` for Hydration. There is no GPU export. There is no tokenizer,
 tensor, or quantization.** Hydration need is well-described by physiology, so v1 is a
 **transparent, deterministic rules engine** — pure arithmetic.
 
@@ -374,7 +374,7 @@ scenarios and asserts, per the contract:
   post-activity spike fires once; debounce holds.
 
 It then writes `hydration_report.md` from the template (verdict + per-scenario table). There
-is **no `--pte` flag and no Kaggle export script** — and that is correct for this feature.
+is **no `--pte` flag and no GPU export script** — and that is correct for this feature.
 
 ---
 
@@ -449,7 +449,7 @@ isn't loaded.
   then **clamps to [1500, 4000] mL** (safety enforced regardless of model output).
 - **Loading:** generic ExecuTorch module path (NOT `useLLM`), same as Energy Predictor. Tiny
   model → `require()`-bundled.
-- **Export/eval:** `ml/export/kaggle_export_hydration.py` (Kaggle, v0.6.0); the existing
+- **Export/eval:** `ml/export/export_hydration.py` (AMD ROCm, v0.6.0); the existing
   `ml/test/hydration_eval.py` engine is the reference the model approximates and the fallback
   the app uses offline.
 - **`HydrationTarget` output contract (§8) is unchanged** — mobile/designer code is unaffected;

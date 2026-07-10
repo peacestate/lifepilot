@@ -31,7 +31,7 @@ numeric tensor.
   **personalization + normalization live in TS** (`§3.3`, `§5`), since they must run
   every prediction and must never drift from the values baked at export.
 - **AI/ML (me):** v1 is a **tiny 1D-CNN/TCN** trained on a **documented synthetic
-  dataset** (`§6`) and exported on **Kaggle** to a **`.pte` pinned to ExecuTorch v0.6.0**
+  dataset** (`§6`) and exported on the **AMD ROCm notebook** to a **`.pte` pinned to ExecuTorch v0.6.0**
   (`§7`). The model is **honest about its priors** — it encodes physiology, not the
   specific user; the user fit comes from `§5`. Eval harness + report in `ml/test/`.
 
@@ -217,7 +217,7 @@ generator** (in the export script, `§7`) so a generic model exists day one:
 - **Honesty:** this model encodes **our assumptions**, not the truth for any individual.
   That is fine and intentional — the generic base gets the **shape** right; `§5` corrects
   the **person**. When real, **consented, on-device** data or a public reference set
-  (e.g. PMData / MMASH-style wearable sleep+activity sets, used only on Kaggle for offline
+  (e.g. PMData / MMASH-style wearable sleep+activity sets, used only on the AMD ROCm notebook for offline
   validation — never user data) is available, we retrain the base and re-export. The I/O
   contract (`§3`–`§4`) does **not** change, so mobile/design code is unaffected.
 
@@ -225,19 +225,19 @@ Assumptions are listed in-script (`SYNTH_ASSUMPTIONS`) so they are reviewable, n
 
 ---
 
-## 7. Export + eval (Kaggle, pinned)
+## 7. Export + eval (AMD ROCm, pinned)
 
-Same pattern as Overwhelm: **train + export on Kaggle, never on the owner's 8 GB PC**
+Same pattern as Overwhelm: **train + export on the AMD ROCm notebook, never on the owner's 8 GB PC**
 (though this model is tiny, we keep the toolchain off the dev machine for consistency and
 because building ExecuTorch needs the room). The `.pte` is pinned to the runtime version.
 
 ```
-ml/export/kaggle_export_energy_predictor.py   # train synth → export .pte (ExecuTorch v0.6.0, XNNPACK)
+ml/export/export_energy_predictor.py   # train synth → export .pte (ExecuTorch v0.6.0, XNNPACK)
 ml/export/README.md                           # §"Option C — Energy Predictor"
 ml/test/energy_eval.py                        # shape / range / latency harness (+ --selftest)
 ml/test/energy_samples.json                   # named scenario archetypes for eval
 ml/test/ENERGY_REPORT_TEMPLATE.md             # the report to fill in
-ml/models/energy/energy_predictor.pte         # ← deliverable (produced on Kaggle)
+ml/models/energy/energy_predictor.pte         # ← deliverable (produced on the AMD ROCm notebook)
 ml/models/energy/manifest.json                # name, executorch_version, quant, scaler, sha256
 ```
 
@@ -278,12 +278,12 @@ and writes a filled `ENERGY_REPORT_TEMPLATE.md`.
 ## 9. File map (what ships where)
 
 ```
-ml/export/kaggle_export_energy_predictor.py   Kaggle: train synth + export .pte
+ml/export/export_energy_predictor.py   AMD ROCm: train synth + export .pte
 ml/export/README.md                           run instructions (Option C section)
 ml/test/energy_eval.py                        shape/range/latency harness
 ml/test/energy_samples.json                   eval scenario archetypes
 ml/test/ENERGY_REPORT_TEMPLATE.md             report template
-ml/models/energy/energy_predictor.pte         the deliverable model (from Kaggle)
+ml/models/energy/energy_predictor.pte         the deliverable model (from the AMD ROCm notebook)
 ml/models/energy/manifest.json                version + scaler constants + sha256
 mobile/src/models/energy/                      app copy of .pte + manifest (mobile owns)
 docs/energy-predictor-model-contract.md        ← this file

@@ -1,6 +1,6 @@
 /**
  * expenseFeaturizer — exact TS port of the featurizer in
- * ml/export/kaggle_export_expense_extractor.py (manifest.json's own note: "PORT TO TS
+ * ml/export/export_expense_extractor.py (manifest.json's own note: "PORT TO TS
  * EXACTLY — pad with single spaces, FNV-1a over utf-8 bytes"). Any drift here changes
  * what the two trained .pte models actually see vs. what they were trained on.
  *

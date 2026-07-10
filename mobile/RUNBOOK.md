@@ -284,16 +284,16 @@ Model files are never committed (`.gitignore`: `**/*.pte`, `/models/`). Either:
     ```bash
     cd ml/export
     docker build -t lifepilot-export .
-    docker run --gpus all lifepilot-export python kaggle_export_energy_predictor.py
-    docker run --gpus all lifepilot-export python kaggle_export_hydration.py
-    docker run --gpus all lifepilot-export python kaggle_export_expense_extractor.py
+    docker run --gpus all lifepilot-export python export_energy_predictor.py
+    docker run --gpus all lifepilot-export python export_hydration.py
+    docker run --gpus all lifepilot-export python export_expense_extractor.py
     ```
-    Despite the `kaggle_export_*.py` filenames (a holdover from where the scripts
+    Despite the `export_*.py` filenames (a holdover from where the scripts
     were first debugged), these are the real training+export scripts, hardware-agnostic
     (ROCm or CUDA) — they're the ones referenced by each model's manifest.
     Each script prints/writes its own `manifest.json` with real sha256/bytes — don't hand-edit.
     > **Status as of this writing:** the `.pte` files currently bundled were run
-    > on Kaggle's free CPU tier (proving the scripts work, catching two real
+    > on the AMD ROCm notebook's free CPU tier (proving the scripts work, catching two real
     > environment bugs — see `ml/export/README.md`), not yet on AMD MI300X. The
     > MI300X re-export is a required, tracked step once the hackathon's AMD
     > compute window opens (2026-07-06) — the scripts are hardware-agnostic, so
@@ -386,7 +386,7 @@ SDK 53.
   v1.0.0 — breaking every custom-exported `.pte` (Energy Predictor, Hydration Predictor,
   Expense line-tagger/category tagger) per [[lifepilot-executorch-version-pin]]'s
   no-forward-compat rule. Fixing it for real means re-exporting all three custom models
-  on Kaggle against the new runtime, plus re-verifying the bundled Llama/Whisper/MiniLM
+  on the AMD ROCm notebook against the new runtime, plus re-verifying the bundled Llama/Whisper/MiniLM
   registry entries (renamed/restructured across v0.8.0–v0.9.0). Owner decision
   2026-07-06: not worth the risk 5 days from the hackathon deadline — ship the honest UX
   (`MicButton` shows a visibly disabled state + `"Voice input isn't available on this

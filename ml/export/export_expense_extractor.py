@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # LifePilot — OCR Expense (feature #4): ExecuTorch EXTRACTION models
-# Kaggle export: 2 tiny MLPs -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
+# GPU export: 2 tiny MLPs -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
 # ---------------------------------------------------------------------------
 # PRIVACY: this whole feature is 100% on-device, ZERO network.
 #   - Raw OCR (image -> text) = platform-native on-device (Apple Vision / ML Kit),
@@ -15,7 +15,7 @@
 # Featurization = hashed character-trigram bag (FNV-1a, dim 256). It is DETERMINISTIC
 # and must be ported to TS exactly (mobile/src/features/expense/) — params in manifest.
 #
-# WHERE TO RUN: Kaggle (CPU fine). Internet ON to clone+build executorch. Never on
+# WHERE TO RUN: the AMD ROCm notebook (CPU fine). Internet ON to clone+build executorch. Never on
 # the 8 GB dev PC. No real receipts — synthetic generator only (no user data).
 # ---------------------------------------------------------------------------
 
@@ -23,7 +23,7 @@
 import os, re, hashlib, json, time
 EXECUTORCH_REF = "v0.6.0"
 SEED = 11; HASH_DIM = 256; NGRAM = 3
-WORK = "/kaggle/working"; ET_DIR = f"{WORK}/executorch"; OUT = f"{WORK}/expense_out"
+WORK = "/tmp/lifepilot_export"; ET_DIR = f"{WORK}/executorch"; OUT = f"{WORK}/expense_out"
 os.makedirs(OUT, exist_ok=True)
 
 # Install ExecuTorch (and its pinned torch==2.7.0) BEFORE importing torch anywhere

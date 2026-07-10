@@ -23,7 +23,7 @@
  * This module owns:
  *   1. Persisting today's model input/output alongside the day's real observed features
  *      (via personalHistory) — the "real data collection" the base model itself doesn't
- *      get to train on, but which THIS layer (and any future manual Kaggle retrain using
+ *      get to train on, but which THIS layer (and any future manual GPU retrain using
  *      only aggregated/anonymized summaries, never raw personalHistory) can use.
  *   2. A light "how's your energy right now?" check-in (contract §5.1) and the EMA
  *      level-bias derived from check-ins vs. what the model predicted for that hour.

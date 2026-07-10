@@ -14,7 +14,7 @@ This is a REGRESSION model — there is no tokenizer, no prompt, no text. The ha
 builds the SAME [1, 12, 7] feature window the mobile app builds (contract §3), using
 the frozen scaler, and feeds it to the .pte.
 
-WHERE TO RUN: Kaggle (same notebook that produced the .pte) or any box with the
+WHERE TO RUN: the AMD ROCm notebook (same session that produced the .pte) or any box with the
 ExecuTorch v0.6.0 pybind runtime. The model is tiny, so latency here is a loose
 proxy; record real Snapdragon numbers before the demo.
 

@@ -13,7 +13,7 @@ the user can review/correct → track expenses. **Nothing is ever uploaded.**
 
 ## 0. The honest calls (two layers)
 
-**No `.pte`. No ExecuTorch model. No Kaggle export.** This feature is two on-device pieces,
+**No `.pte`. No ExecuTorch model. No GPU export.** This feature is two on-device pieces,
 neither of which is a custom trained model:
 
 1. **OCR (image → text): platform-native, on-device.** Apple **Vision** (`VNRecognizeTextRequest`)
@@ -187,7 +187,7 @@ where it's the ML-hard part — **field/line classification and categorization**
   and date disambiguation stay exact and explainable).
 - **Output contract (§8) is unchanged** — `ExpenseFields` with per-field confidence (now the
   model softmax). Mobile/designer code is unaffected; the producer changed, not the shape.
-- **Export/eval:** `ml/export/kaggle_export_expense_extractor.py` (Kaggle, v0.6.0). The model is
+- **Export/eval:** `ml/export/export_expense_extractor.py` (AMD ROCm, v0.6.0). The model is
   validated against `expense_eval.py` fixtures (the parser it learned from).
 - **Privacy unchanged and absolute:** native OCR + both ExecuTorch models run fully on-device;
   **zero network** anywhere in the feature (no allowlist). See

@@ -8,7 +8,7 @@ Validates the model against the contract (docs/overwhelm-model-contract.md):
   - latency (per-task wall time, p50/p95)
 and writes a filled-in report from REPORT_TEMPLATE.md.
 
-WHERE TO RUN: Kaggle (same notebook that produced the .pte) or any box with the
+WHERE TO RUN: the AMD ROCm notebook (same session that produced the .pte) or any box with the
 ExecuTorch pybind runtime. NOT the 8 GB dev PC for the model path.
 
 The PARSING here is intentionally identical to what the mobile app does, so the

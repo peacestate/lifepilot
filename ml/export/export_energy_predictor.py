@@ -1,6 +1,6 @@
 # ---------------------------------------------------------------------------
 # LifePilot — Energy Predictor (feature #2)
-# Kaggle export: tiny 1D-CNN/TCN -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
+# GPU export: tiny 1D-CNN/TCN -> ExecuTorch .pte (XNNPACK, ExecuTorch v0.6.0)
 # ---------------------------------------------------------------------------
 # WHAT THIS IS
 #   A time-series REGRESSION model (NOT an LLM, no tokenizer). It takes a 7-day
@@ -8,7 +8,7 @@
 #   energy curve (0..100). Full I/O contract: docs/energy-predictor-model-contract.md
 #
 # WHERE TO RUN
-#   Kaggle Notebook, Accelerator = GPU (or even CPU — the model is tiny). Internet
+#   AMD ROCm notebook, Accelerator = GPU (or even CPU — the model is tiny). Internet
 #   ON so it can clone executorch and build it. DO NOT build ExecuTorch on the
 #   8 GB dev PC; keep the toolchain off the owner's machine (machine-safety rule).
 #
@@ -40,7 +40,7 @@ N_FEAT    = 12      # features per day (contract §3.3)
 OUT_HOURS = 24      # hourly energy curve (contract §4)
 EPOCHS    = 40
 
-WORK   = "/kaggle/working"
+WORK   = "/tmp/lifepilot_export"
 ET_DIR = f"{WORK}/executorch"
 OUT    = f"{WORK}/energy_out"
 os.makedirs(OUT, exist_ok=True)
