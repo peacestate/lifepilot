@@ -85,7 +85,7 @@ breaking their own business model. Intelligence that actually stays yours."
 
 ## 2:45–3:00 — Close
 **On screen:** Title card: **LifePilot — private by construction.**
-`github.com/kiAnukal/lifepilot`
+`github.com/peacestate/lifepilot`
 
 **VO:** "LifePilot. The smartest wellness app that never phones home. Thanks for
 watching."

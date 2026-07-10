@@ -135,7 +135,7 @@ isn't a feature — it's an architecture competitors can't adopt cheaply.
 ## Slide 10 — Close
 **LifePilot — intelligence that stays yours.**
 
-- Repo: github.com/kiAnukal/lifepilot
+- Repo: github.com/peacestate/lifepilot
 - "On-device. Private by construction. Made with AMD compute."
 - Thank you + contact.
 
