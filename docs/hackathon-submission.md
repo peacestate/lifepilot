@@ -45,9 +45,10 @@ features, each backed by its own on-device model:
 - **Hydration Tracker** — a trained regression model combines body
   metrics, activity, and (optionally) local weather/AQI into a personalized
   daily water target.
-- **Expense Scanner** — point the camera at a receipt; on-device OCR plus a
-  trained field-extraction model tags line items and categorizes spend, no
-  photo or text ever uploaded.
+- **Expense Scanner** — point the camera at a receipt; on-device OCR plus two
+  trained models (a line-item field extractor and a spend categorizer) tag and
+  classify the receipt, with currency auto-detected — no photo or text ever
+  uploaded.
 
 **Why it's real, not a slogan.** "Privacy-first" is a claim most apps make
 and few actually build for. LifePilot's models are exported to ExecuTorch
@@ -59,13 +60,14 @@ a fallback mode; it's the only mode.
 
 **Where AMD actually fits.** Because the product's whole premise is that
 inference never touches the cloud, AMD's role isn't in the runtime — it's in
-how the models get *made*. The energy, hydration, and expense models are
-trained and exported inside a containerized pipeline
-(`ml/export/Dockerfile`) that runs on AMD MI300X GPUs via ROCm — real
-training on real AMD infrastructure, producing the exact `.pte` artifacts
-that ship inside the app. That's the honest version of "built on AMD": not
-a checkbox API call at request time, but the actual compute behind every
-model the app carries.
+how the models get *made*. The energy, hydration, and expense models (four
+trained `.pte` artifacts in all) are **trained and exported on AMD Instinct
+MI300X GPUs via ROCm**, on AMD's ROCm cloud notebooks (notebooks.amd.com) —
+real GPU training producing the exact `.pte` files that ship inside the app
+(the shipped artifacts' checksums match the AMD build; see
+`ml/export/amd_notebook_run.py` and the recorded provenance). That's the
+honest version of "built on AMD": not a checkbox API call at request time,
+but the actual GPU compute behind every trained model the app carries.
 
 **What's deliberately absent.** We didn't wire in a hosted inference API
 (Fireworks or otherwise) for the shipped app, and that's a design decision,
@@ -101,12 +103,14 @@ task breakdowns in airplane mode. See the demo video for the full walkthrough.
 ---
 
 ## Notes for whoever fills the form in
-- Long Description above assumes the AMD MI300X re-export (currently
-  pending, see [[project-status-2026-07]]) is DONE by submission time. If
-  the re-export doesn't land before the deadline, soften "runs on AMD MI300X
-  GPUs via ROCm" to "designed to run on AMD MI300X GPUs via ROCm (containerized
-  pipeline, hardware-agnostic scripts)" and be truthful about what stage it's
-  at — don't claim a run that didn't happen.
+- The AMD MI300X re-export **was completed on 2026-07-10** on AMD's ROCm cloud
+  notebook (notebooks.amd.com): all four trained models (`energy_predictor`,
+  `hydration_predictor`, `expense_line_tagger`, `expense_category`) were trained
+  on the MI300X GPU (`torch.cuda.is_available()` True, ROCm/HIP 7.2, torch 2.9.1)
+  and exported with ExecuTorch 0.6.0. The resulting `.pte` files are the ones
+  bundled in the app, and their sha256 checksums are recorded in each
+  `mobile/src/models/<feature>/manifest.json`. So the strong AMD wording above
+  is factual, not aspirational.
 - Fill in the Category Tags against whatever controlled vocabulary the
   lablab.ai form actually offers — the list above is a starting point, not
   guaranteed to match their exact taxonomy.

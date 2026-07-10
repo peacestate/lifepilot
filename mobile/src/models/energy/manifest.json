@@ -4,7 +4,7 @@
   "executorch_version": "v0.6.0",
   "backend": "xnnpack",
   "quant": "fp32",
-  "exported_utc": "2026-07-01T23:17:37Z",
+  "exported_utc": "2026-07-10T12:02:41Z",
   "input": {
     "shape": [
       1,
@@ -91,6 +91,6 @@
   ],
   "pte_filename": "energy_predictor.pte",
   "bytes": 44512,
-  "sha256": "e9106af36d70a3cd3a7dbe84abcc0f934937b700e471f1adecdbc8ea400271dd",
+  "sha256": "3d331b58678c3ed2bd1d9bbe61dd33cf5264c5f969c218f9089233c438864c67",
   "params": 9688
 }

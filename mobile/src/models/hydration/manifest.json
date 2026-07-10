@@ -4,7 +4,7 @@
   "executorch_version": "v0.6.0",
   "backend": "xnnpack",
   "quant": "fp32",
-  "exported_utc": "2026-07-01T23:17:04Z",
+  "exported_utc": "2026-07-10T12:02:41Z",
   "input": {
     "shape": [
       1,
@@ -64,5 +64,5 @@
   "trained_from": "deterministic physiology engine (contract \u00c2\u00a71) + label noise",
   "pte_filename": "hydration_predictor.pte",
   "bytes": 11152,
-  "sha256": "43ddf8e34aa75b09ac488b91db0ca074548417c797692253c3fcbc1d950ad4bb"
+  "sha256": "7ed4db8c12fde80dada35a9aac2070ce5414d1754e25419a5cbb6be981296956"
 }

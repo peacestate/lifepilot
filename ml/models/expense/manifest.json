@@ -2,7 +2,7 @@
   "name": "expense_extractor",
   "executorch_version": "v0.6.0",
   "backend": "xnnpack",
-  "exported_utc": "2026-07-01T23:17:14Z",
+  "exported_utc": "2026-07-10T12:02:41Z",
   "featurizer": {
     "type": "hashed_char_ngram_bow",
     "hash": "fnv1a_32",
@@ -32,7 +32,7 @@
       "ITEM"
     ],
     "bytes": 88724,
-    "sha256": "b74ba330bdb7bff9e7144457aadc0b7354f06030dd7e9b6157bebe0b4536b654"
+    "sha256": "7663fa6a56c65033c99a605a2c7de0cf39c020f7f7e6e9bea0613374a87f2f00"
   },
   "category": {
     "pte": "expense_category.pte",
@@ -47,7 +47,7 @@
       "Other"
     ],
     "bytes": 87708,
-    "sha256": "7e88e0884a548622ebf961ebf26c043bfb2489399ecb44de732b767239bfc1d2"
+    "sha256": "f6a867de3be3dc0c8cf22fe95fc0c21e36c9f7cf373298f5d21f3bc78a5dc657"
   },
   "synthetic_training": true,
   "fallback": "deterministic parser ml/test/expense_eval.py (used when model confidence < 0.6)"
