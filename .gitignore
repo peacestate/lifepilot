@@ -27,3 +27,7 @@ kaggle.json
 # Misc
 *.log
 .DS_Store
+
+# Claude Code local tooling — not part of the shipped product
+.claude/
+CLAUDE.md
