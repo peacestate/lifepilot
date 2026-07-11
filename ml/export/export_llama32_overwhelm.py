@@ -3,12 +3,11 @@
 # GPU export: Llama 3.2 1B Instruct (INT4) -> ExecuTorch .pte
 # ---------------------------------------------------------------------------
 # WHERE TO RUN
-#   AMD ROCm notebook, Accelerator = GPU (T4 x2 or P100). Use the account that
-#   still has GPU quota left (the image-generation one). Internet must be ON
-#   (Settings -> Internet) so it can clone executorch and pull the checkpoint.
+#   An AMD ROCm notebook (notebooks.amd.com) with a GPU attached and internet ON,
+#   so it can clone executorch and pull the gated checkpoint.
 #
 # DO NOT RUN THIS ON THE 8 GB DEV PC. Exporting a 1B model needs ~12-16 GB RAM.
-# AMD MI300X gives ample GPU memory, which is why we export there.
+# The MI300X has ample memory, which is why we export there.
 #
 # This script is the reproducible path for a CUSTOM/fine-tuned model. For v1 the
 # app simply ships the pre-exported HF QLoRA .pte (see ml/export/README.md and
@@ -49,13 +48,13 @@ os.makedirs(OUT, exist_ok=True)
 print("export ref:", EXECUTORCH_REF, "| quant:", QUANT, "| src:", SRC_REPO)
 
 # %% [markdown]
-# ## 1. HF token (notebook secret or env var)
-# Add-ons -> Secrets -> add `HF_TOKEN` (a Hugging Face token for an account that
-# has accepted the Llama 3.2 license). Never paste the token inline.
+# ## 1. HF token (env var)
+# Export `HF_TOKEN` in the environment before running (a Hugging Face token for an
+# account that has accepted the gated Llama 3.2 license). Never paste it inline.
 
 # %%
-# HF_TOKEN read from environment (notebook secret / env var); never paste inline
-assert os.environ.get("HF_TOKEN"), "Set HF_TOKEN (env var / notebook secret) before running"
+# HF_TOKEN read from the environment; never paste inline
+assert os.environ.get("HF_TOKEN"), "Set HF_TOKEN in the environment before running"
 
 # %% [markdown]
 # ## 2. Clone ExecuTorch at the pinned tag + install

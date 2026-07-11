@@ -30,7 +30,7 @@ Feature: user types what's overwhelming them → on-device **Llama 3.2 1B Instru
 | Source | Use | Why |
 |---|---|---|
 | **HF `software-mansion/react-native-executorch-llama-3.2` (QLoRA INT4)** | **v1 — ship this** | Already 4-bit, already matched to the `react-native-executorch` runtime, zero export risk. Unblocks the mobile dev today. |
-| **Our own GPU export** (`ml/export/`) | Later — custom/fine-tuned model | The owner's 8 GB PC cannot export a 1B model (needs ~12–16 GB). AMD ROCm notebooks (~30 GB RAM + T4/P100) can. Not on the critical path for the first build. |
+| **Our own GPU export** (`ml/export/`) | Later — custom/fine-tuned model | The owner's 8 GB PC cannot export a 1B model (needs ~12–16 GB). An AMD ROCm notebook (MI300X, ample host + GPU memory) can. Not on the critical path for the first build. |
 
 Both must obey the **same I/O contract** (`§3`–`§4`) so the mobile code never changes
 when we swap the HF model for our own.

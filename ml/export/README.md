@@ -1,71 +1,85 @@
-# ml/export — Overwhelm Manager model export
+# ml/export — training + export of the on-device models
 
-Two ways to get the on-device `.pte`. **For v1, use Option A.**
+Everything the app runs on-device is produced here. Two different stories, one per
+kind of model:
 
-## Option A — Ship the pre-exported HF model (v1, recommended)
-No export needed. The mobile dev integrates this directly.
+| Model | Where it comes from |
+|---|---|
+| `energy_predictor`, `hydration_predictor`, `expense_line_tagger`, `expense_category` | **Trained + exported by us on AMD Instinct MI300X (ROCm)** — see below |
+| Overwhelm Manager (Llama 3.2 1B) | **Not trained by us.** Ships Software Mansion's official pre-quantized QAT-LoRA `.pte`, pulled from Hugging Face |
 
-1. From `software-mansion/react-native-executorch-llama-3.2` download the **QLoRA INT4**
-   `.pte` for Llama 3.2 1B + `tokenizer.json` + `tokenizer_config.json`.
-2. Put them in `mobile/src/models/overwhelm/` and write `manifest.json`
-   (`name, source, sha256, executorch_version: "v0.6.0", bytes, pte_filename`).
-3. Done — already matched to the runtime (ExecuTorch **v0.6.0**, no forward compat).
+**Hard rule, both paths:** the exported `.pte` must be built against **ExecuTorch
+v0.6.0**, the version bundled in the pinned `react-native-executorch`. `.pte` has no
+forward compatibility — a mismatch doesn't degrade, it fails to load on device. See
+`docs/overwhelm-model-contract.md` §6.
 
-> This is the fastest, lowest-risk path and what unblocks the build today.
+Exports do not run on the dev PC (they need ~12–16 GB RAM; it has 8 GB). They run on
+the AMD notebook.
 
-## Option B — Export our own on the AMD ROCm notebook (custom/fine-tuned model, later)
-Run `export_llama32_overwhelm.py` on the **AMD ROCm notebook**, not the dev PC (export needs
-~12–16 GB RAM; the PC has 8 GB).
+## Production build — AMD Instinct MI300X (ROCm)
 
-1. New AMD ROCm notebook on the account with GPU quota left (the image-gen one).
-   **Accelerator = GPU**, **Internet = ON**.
-2. Add a Secret `HF_TOKEN` (Add-ons → Secrets) for an HF account that accepted the
-   Llama 3.2 license.
-3. Paste the cells (or upload the `.py` and "Run All"). First run ~20–40 min (install +
-   download dominate).
-4. **Before running:** set `EXECUTORCH_REF` to the ExecuTorch version that matches the
-   `react-native-executorch` version the CTO pinned (default `v0.6.0`). Mismatch = model
-   won't load on device.
-5. Download `overwhelm_model_bundle.zip`, unzip into `mobile/src/models/overwhelm/`.
-6. Run `ml/test/overwhelm_eval.py` (on the AMD ROCm notebook, against the produced `.pte`) to generate the
-   20-task report.
+The four trained models shipped in the app were trained and exported on a real MI300X
+via AMD's ROCm cloud notebooks (notebooks.amd.com), using `amd_notebook_run.py`. The
+resulting sizes + sha256 are recorded in `ml/models/AMD_PROVENANCE.txt` and in each
+`mobile/src/models/<feature>/manifest.json`.
 
-Checkpoints used (gated): `meta-llama/Llama-3.2-1B-Instruct-QLORA_INT4_EO8` or
-`...-SpinQuant_INT4_EO8`.
+No user data is involved at any point: every training script generates its own
+**synthetic** data inline (see each contract doc §6).
 
-See `docs/overwhelm-model-contract.md` for the full I/O contract and the version-pin rule.
+### Reproducing it
 
----
+1. Open an AMD AI notebook (notebooks.amd.com), JupyterLab on the ROCm image, GPU
+   attached. Get `ml/export/` onto it (clone the repo or upload the folder).
+2. From `ml/export/`, run:
+   ```bash
+   python amd_notebook_run.py
+   ```
+   It orchestrates the three training scripts in-process order (energy → hydration →
+   expense), re-implementing none of them, so the artifacts match the tested pipeline
+   and differ only in the hardware that produced them.
+3. It prints `torch.version.hip` / `torch.cuda.is_available()` **before and after** the
+   `pip install executorch==0.6.0` step, and warns loudly if either is false. This
+   matters: the ExecuTorch wheel can replace the notebook's preinstalled ROCm torch with
+   a CPU-only build, which would silently move training to CPU and make the "trained on
+   AMD GPU" claim untrue. If it warns, force-reinstall the ROCm torch wheel and re-run.
+4. Download `/tmp/lifepilot_export/amd_out/lifepilot-amd-models.zip` — the four `.pte`
+   plus a `provenance.txt` recording the ROCm/HIP version, ExecuTorch version, and
+   per-file checksums.
+5. Unzip into `ml/models/<feature>/` and `mobile/src/models/<feature>/`, then update
+   each `manifest.json` with the `bytes` + `sha256` from `provenance.txt`. The app
+   verifies these at load.
 
-## Option C — Energy Predictor (feature #2)
-A different kind of model: a **time-series regression** (NOT an LLM, no tokenizer).
-Run `export_energy_predictor.py` on the **AMD ROCm notebook**. The model is tiny, but we keep the
-ExecuTorch build off the 8 GB dev PC for consistency and machine-safety.
+`Dockerfile` containerizes the same pipeline for ROCm if you'd rather not use the
+hosted notebook.
 
-1. New AMD ROCm notebook. Accelerator GPU (CPU works too), **Internet = ON** (clones
-   executorch). **No HF token needed** — training data is a documented **synthetic**
-   generator inside the script (contract §6), so **no real user data is ever used**.
-2. `EXECUTORCH_REF` defaults to `v0.6.0`; set it to whatever ExecuTorch version the CTO's
-   pinned `react-native-executorch` bundles. `QUANTIZE=False` by default (model is < 200 KB;
-   int8/4-bit buys nothing here — contract §1).
-3. "Run All". It trains the 1D-CNN/TCN on synthetic data, then exports via the v0.6.0
-   XNNPACK pipeline (`export_for_training` → `to_edge_transform_and_lower` →
-   `to_executorch` → `write_to_file`).
-4. Download `energy_model_bundle.zip` (contains `energy_predictor.pte` + `manifest.json`
-   with the **frozen feature scaler**) → unzip into `ml/models/energy/` and
-   `mobile/src/models/energy/`.
-5. Run `ml/test/energy_eval.py --pte energy_predictor.pte` (on the AMD ROCm notebook, against the produced
-   `.pte`) to generate the report (shape / range / plausibility / latency).
+## The scripts
 
-Full I/O contract, feature schema, scaler constants, personalization and cold-start rules:
-`docs/energy-predictor-model-contract.md`.
+| Script | Produces | Notes |
+|---|---|---|
+| `export_energy_predictor.py` | `energy_predictor.pte` + manifest w/ frozen feature scaler | 1D-CNN/TCN time-series regression, no tokenizer. `QUANTIZE=False` — the model is < 200 KB, quantization buys nothing (contract §1) |
+| `export_hydration.py` | `hydration_predictor.pte` | regression on body metrics + activity + optional weather |
+| `export_expense_extractor.py` | `expense_line_tagger.pte`, `expense_category.pte` | two models: field extraction + categorization |
+| `export_llama32_overwhelm.py` | `overwhelm_model_bundle.zip` | **not used by the shipped app** — see below |
 
-## Production training — AMD Instinct MI300X (ROCm)
+All of them write to `/tmp/lifepilot_export/` and zip their output; all default
+`EXECUTORCH_REF` to `v0.6.0`.
 
-The four shipped trained models (`energy_predictor`, `hydration_predictor`,
-`expense_line_tagger`, `expense_category`) were **trained + exported on AMD
-Instinct MI300X GPUs via ROCm**, on AMD's ROCm cloud notebooks
-(notebooks.amd.com), using `amd_notebook_run.py` in this folder. The resulting
-`.pte` checksums are recorded in each `mobile/src/models/<feature>/manifest.json`
-and in `ml/models/AMD_PROVENANCE.txt`. (Free GPU notebooks were used only for
-early dev-time debugging; the shipped artifacts are the AMD build.)
+## Overwhelm / Llama — what ships, and the export path we don't use
+
+The app ships Software Mansion's pre-exported QLoRA INT4 `.pte` for Llama 3.2 1B
+(from `software-mansion/react-native-executorch-llama-3.2`) plus its `tokenizer.json`
+and `tokenizer_config.json`, in `mobile/src/models/overwhelm/`. It's already built
+against ExecuTorch v0.6.0, so there is nothing to export.
+
+`export_llama32_overwhelm.py` exists for the day we export a custom or fine-tuned
+variant. It needs an `HF_TOKEN` in the environment (a Hugging Face token for an account
+that has accepted the gated Llama 3.2 license) and pulls
+`meta-llama/Llama-3.2-1B-Instruct-QLORA_INT4_EO8` or `...-SpinQuant_INT4_EO8`. First run
+is ~20–40 min, dominated by install + download. Never paste a token inline — the script
+reads it from the environment only.
+
+## Evals
+
+One eval script + report per model in `ml/test/` (`*_eval.py`), run against the produced
+`.pte`. Full I/O contracts, feature schemas, scaler constants, and cold-start rules live
+in `docs/*-model-contract.md`.
