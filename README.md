@@ -8,7 +8,7 @@ Built for the **AMD Developer Hackathon: ACT II**, Track 3 (Unicorn). See [`docs
 
 All four features running live, on-device, in airplane mode:
 
-https://github.com/user-attachments/assets/eaa3fa31-f32c-4b5e-9a7d-cc573335ddb6
+https://github.com/user-attachments/assets/f80ce6b2-5b4d-40c4-a36a-84752677d05c
 
 The video is the primary evidence this app works end-to-end. For a technical reviewer
 who wants to reproduce that themselves (install APK, push model files, launch),
