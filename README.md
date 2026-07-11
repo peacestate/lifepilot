@@ -16,6 +16,21 @@ see **[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** for exact, copy-pasteable
 `adb` commands. Running it yourself is not required to evaluate the
 submission — the video is.
 
+## AMD compute usage
+
+The four trained models that ship in the app — `energy_predictor`, `hydration_predictor`,
+`expense_line_tagger`, `expense_category` — were **trained and exported on an AMD Instinct
+MI300X GPU via ROCm**, on AMD's ROCm cloud notebooks (notebooks.amd.com). Evidence in this repo:
+
+- [`ml/models/AMD_PROVENANCE.txt`](ml/models/AMD_PROVENANCE.txt) — the build record: ROCm/HIP `7.2.53211`, ExecuTorch `0.6.0`, and the sha256 + byte size of every `.pte` produced on the AMD box.
+- [`ml/export/amd_notebook_run.py`](ml/export/amd_notebook_run.py) — the one-shot train + export runner that produced them, which verifies `torch.version.hip` and `torch.cuda.is_available()` before and after install so a CPU fallback can't silently masquerade as GPU training.
+- [`ml/export/Dockerfile`](ml/export/Dockerfile) — the same pipeline containerized for ROCm.
+- Each `mobile/src/models/<feature>/manifest.json` carries the sha256 of the AMD-built artifact the app loads and verifies at runtime.
+
+AMD compute produces the intelligence; the phone runs it. The shipped app performs **zero cloud
+inference by design** — that's the privacy guarantee, and it's why AMD's role is in training and
+export rather than at request time.
+
 ## Features
 1. **Overwhelm Manager** — an on-device Llama 3.2 1B model breaks a freeform task description into a concrete 5–8 step plan, and lets you break any step down further. Gets more personalized with use via on-device-only memory of past tasks.
 2. **Energy Planner** — a trained time-series model predicts a 24h energy curve from recent sleep/activity (via Health Connect or manual entry), surfacing a focus window and a wind-down window.
