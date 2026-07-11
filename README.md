@@ -5,8 +5,10 @@ An on-device wellness co-pilot. **Every AI feature runs on-device via ExecuTorch
 Built for the **AMD Developer Hackathon: ACT II**, Track 3 (Unicorn). See [`docs/hackathon-submission.md`](docs/hackathon-submission.md) for the full submission pitch.
 
 ## Running it / seeing it work
-The demo video is the primary evidence this app works end-to-end — all
-features running live, on-device, in airplane mode. For a technical reviewer
+**▶ [Watch the demo (2:40)](media/lifepilot-demo-16x9.mp4)** — all four features
+running live, on-device, in airplane mode.
+
+The video is the primary evidence this app works end-to-end. For a technical reviewer
 who wants to reproduce that themselves (install APK, push model files, launch),
 see **[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** for exact, copy-pasteable
 `adb` commands. Running it yourself is not required to evaluate the
