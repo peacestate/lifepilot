@@ -10,7 +10,6 @@
     "bundle-liteparse": "node scripts/bundle-liteparse.js",
     "prebuild": "expo prebuild",
     "test": "jest",
-    "lint": "eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
