@@ -42,7 +42,6 @@ let _cameraModule: {
 function loadCameraModule() {
   if (_cameraModule) return _cameraModule;
   try {
-    // @ts-expect-error — optional peer dep
     _cameraModule = require('react-native-vision-camera');
   } catch {
     _cameraModule = null;

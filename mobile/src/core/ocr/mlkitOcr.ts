@@ -43,10 +43,7 @@ async function getMlkit(): Promise<MlkitOcrModule['default'] | null> {
   if (_mlkitAttempted) return _mlkit;
   _mlkitAttempted = true;
   try {
-    const mod: MlkitOcrModule = await import(
-      // @ts-expect-error — optional peer dep; not present until `npm install` + prebuild
-      'react-native-mlkit-ocr'
-    );
+    const mod: MlkitOcrModule = await import('react-native-mlkit-ocr');
     _mlkit = mod.default;
     return _mlkit;
   } catch {

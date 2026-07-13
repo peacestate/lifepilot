@@ -60,12 +60,10 @@ async function tryInitWasm(): Promise<boolean> {
   try {
     // Dynamic import keeps bundler from erroring when package isn't installed.
     // Polygen intercepts this on iOS and routes to the AOT-compiled TurboModule.
-    const mod = await import(
-      // @ts-expect-error — optional peer dep; not present until `npm install` + prebuild
-      '@llamaindex/liteparse-wasm'
-    );
-    await (mod as WasmModule).default(); // init WASM runtime (no-op with Polygen native)
-    _wasm = mod as WasmModule;
+    const mod = await import('@llamaindex/liteparse-wasm');
+    // Double cast: the package's generated types don't structurally overlap WasmModule.
+    await (mod as unknown as WasmModule).default(); // init WASM runtime (no-op with Polygen native)
+    _wasm = mod as unknown as WasmModule;
     return true;
   } catch {
     return false;

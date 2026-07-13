@@ -151,6 +151,12 @@ export function toSubSteps(
 /* ------------------------------------------------------------------ *
  * Decoding config (model-contract §3 / §5). Low temperature for format
  * stability. Matches GEN in the eval harness.
+ *
+ * NOTE: the eval harness honours these, but the on-device runtime does not —
+ * react-native-executorch 0.4.10 exposes no sampling API (its ChatConfig is
+ * only { initialMessageHistory, contextWindowLength, systemPrompt }), so the
+ * app decodes with the runtime's built-in defaults. Kept as the documented
+ * contract; wire them in if a future runtime exposes the knobs.
  * ------------------------------------------------------------------ */
 export const DECODING = {
   temperature: 0.3,

@@ -54,8 +54,6 @@ import {
   toSteps,
   toSubSteps,
   subStepUser,
-  DECODING,
-  STOP_TOKEN_ID,
   SUB_MAX_STEPS,
   SUBSTEP_SYSTEM_PROMPT,
 } from './OverwhelmService';
@@ -207,25 +205,19 @@ export function useOverwhelmManager(): UseOverwhelmManager {
     [],
   );
 
-  // --- configure decoding once the model is ready --------------------------
-  useEffect(() => {
-    if (!llm.isReady || typeof llm.configure !== 'function') return;
-    try {
-      // A2/A3 isolation point. Decoding config + stop token from the contract.
-      llm.configure({
-        generationConfig: {
-          temperature: DECODING.temperature,
-          topP: DECODING.topP,
-          maxNewTokens: DECODING.maxNewTokens,
-          // Llama 3.2 stops on <|eot_id|> (128009). Tokenizer config also
-          // carries this; we set it explicitly for safety.
-          stopTokenIds: [STOP_TOKEN_ID],
-        },
-      });
-    } catch {
-      // configure shape varies by version; non-fatal. CTO verify on pinned ver.
-    }
-  }, [llm]);
+  /* Decoding params (DECODING / STOP_TOKEN_ID in OverwhelmService) are NOT
+   * applied at runtime: react-native-executorch 0.4.10 exposes no sampling API.
+   * Its configure() takes only { chatConfig, toolsConfig }, and ChatConfig is
+   * { initialMessageHistory, contextWindowLength, systemPrompt } — no
+   * temperature/topP/maxNewTokens/stopTokenIds anywhere in the public surface.
+   * The model therefore decodes with the runtime's built-in defaults, and stops
+   * on <|eot_id|> via the tokenizer config rather than an explicit stop-token
+   * list. The constants stay as the documented contract (and the eval harness
+   * does honour them); wire them in if a future runtime exposes the knobs.
+   *
+   * A previous version called configure({ generationConfig: {...} }) here — an
+   * unknown key the controller silently discards while resetting chat state to
+   * defaults, so it never had any effect. Removed rather than left to imply it did. */
 
   // --- warm-up once ready (model-contract §5) ------------------------------
   // This fires on its own, without the user asking for it — so unlike a real "run",

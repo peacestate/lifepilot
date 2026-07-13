@@ -32,7 +32,6 @@ let _webviewMod: WebViewModule | null = null;
 function getWebViewMod(): WebViewModule | null {
   if (_webviewMod) return _webviewMod;
   try {
-    // @ts-expect-error — optional dep; not present until npm install
     _webviewMod = require('react-native-webview');
     return _webviewMod;
   } catch {

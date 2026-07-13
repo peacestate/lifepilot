@@ -1,10 +1,15 @@
 /**
  * Network-ban for the Overwhelm feature (integration doc §5.1).
- * Merge these `overrides` into the app's main ESLint config. CI fails the build
- * if any file in the feature imports a networking primitive or HTTP client.
  *
  * The privacy promise is enforced in code, not just policy: there is NOTHING for
  * this feature to call. User input + model output never leave the device.
+ *
+ * STATUS: these `overrides` were never merged into a main ESLint config (the app
+ * has none — `eslint .` has no config to load). The ban is instead enforced by
+ * `src/features/overwhelm/networkBan.test.ts`, which scans every source file in
+ * the feature for the same primitives and fails `npm test` on any hit. That test
+ * is the live check; this file is kept as the rule's canonical statement, ready
+ * to drop into an ESLint config if one is ever added.
  */
 module.exports = {
   overrides: [
