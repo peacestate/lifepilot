@@ -11,14 +11,21 @@ All four features running live, on-device, in airplane mode:
 https://github.com/user-attachments/assets/f80ce6b2-5b4d-40c4-a36a-84752677d05c
 
 The video is the primary evidence this app works end-to-end. Running it yourself is not
-required to evaluate the submission — but if you want to, everything you need is on the
-**[v1.0.0 Release](https://github.com/peacestate/lifepilot/releases/tag/v1.0.0)**:
+required to evaluate the submission — but it's easy if you want to.
 
-- **`lifepilot-v1.0.0.apk`** (~103 MB) — the Android app itself. No build required.
-- **`lifepilot-models.zip`** (~1.2 GB) — the on-device models, pushed once via `adb`.
+### Just install it — no computer needed
 
-**[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** has the exact, copy-pasteable `adb`
-commands — about 10 minutes, most of it the one-time model push.
+Grab **`lifepilot-v1.1.0.apk`** from the **[v1.1.0 Release](https://github.com/peacestate/lifepilot/releases/tag/v1.1.0)**
+and open it. The app downloads its own models on first run, then never needs the network
+again. That first-run fetch is model-in-only — it pulls model weights and sends nothing
+about you, which is why airplane mode still works the moment it's done.
+
+### The submission build (v1.0.0)
+
+The judged artifact is the **[v1.0.0 Release](https://github.com/peacestate/lifepilot/releases/tag/v1.0.0)**,
+which provisions its models the manual way — the APK plus `lifepilot-models.zip` (~1.2 GB)
+pushed over `adb` from a computer. **[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** has the exact,
+copy-pasteable commands. v1.1.0 is the same app with the setup step automated.
 
 ## AMD compute usage
 
