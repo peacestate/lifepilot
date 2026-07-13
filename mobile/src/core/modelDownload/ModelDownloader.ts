@@ -31,6 +31,7 @@
 import * as FileSystem from 'expo-file-system';
 
 import catalog from '../../models/downloadCatalog.json';
+import { base64ToBytes, sha256 } from './sha256';
 
 export type CatalogFile = {
   feature: string;
@@ -65,6 +66,30 @@ const FILES = catalog.files as CatalogFile[];
 const BASE_URL = catalog.baseUrl as string;
 const MAX_ATTEMPTS = 3;
 
+/**
+ * Files at or under this size are checked by sha256; larger ones by byte size alone.
+ *
+ * Size is not a sufficient check. The pre-AMD energy model and the AMD-trained one
+ * are both exactly 44,512 bytes — a size check accepts the stale file forever, and
+ * real devices were found in exactly that state, silently running the wrong weights.
+ * All four trained `.pte` models are far below this bound, so the ones where
+ * provenance actually matters are always hash-verified.
+ *
+ * The bound exists because the big files can't be hashed here: reading a 1.2 GB
+ * .pte into JS as base64 to digest it would blow memory and take minutes on a
+ * launch path. Those rely on size plus the fact that a truncated download is
+ * discarded before it's ever moved into place.
+ */
+const HASH_MAX_BYTES = 8 * 1024 * 1024;
+
+/** sha256 of a file already on disk. Only call for files <= HASH_MAX_BYTES. */
+async function hashFile(uri: string): Promise<string> {
+  const b64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return sha256(base64ToBytes(b64));
+}
+
 function dirFor(feature: string): string {
   const base = FileSystem.documentDirectory;
   if (!base) throw new ModelDownloadError('FileSystem.documentDirectory unavailable.');
@@ -73,10 +98,23 @@ function dirFor(feature: string): string {
 
 const uriFor = (f: CatalogFile) => `${dirFor(f.feature)}/${f.target}`;
 
-/** True when the file is present at exactly the catalogued size. */
+/**
+ * True when the file on disk is the one we expect — right size, and for small
+ * files the right contents too. A same-size file with different bytes (a stale
+ * model from an earlier build) counts as missing and gets replaced.
+ */
 async function isPresent(f: CatalogFile): Promise<boolean> {
-  const info = await FileSystem.getInfoAsync(uriFor(f), { size: true });
-  return info.exists && info.size === f.bytes;
+  const uri = uriFor(f);
+  const info = await FileSystem.getInfoAsync(uri, { size: true });
+  if (!info.exists || info.size !== f.bytes) return false;
+  if (f.bytes > HASH_MAX_BYTES) return true;
+
+  try {
+    return (await hashFile(uri)) === f.sha256;
+  } catch {
+    // Unreadable is as good as absent — re-fetching is always safe.
+    return false;
+  }
 }
 
 /** Which model files are still missing (or truncated), and how many bytes that is. */
@@ -142,6 +180,16 @@ async function downloadOne(f: CatalogFile, onBytes: (delta: number) => void): Pr
     throw new ModelDownloadError(
       `${f.asset}: got ${info.exists ? info.size : 0} bytes, expected ${f.bytes} (truncated or interrupted).`,
     );
+  }
+
+  if (f.bytes <= HASH_MAX_BYTES) {
+    const got = await hashFile(partUri);
+    if (got !== f.sha256) {
+      await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+      throw new ModelDownloadError(
+        `${f.asset}: sha256 ${got.slice(0, 12)}… != expected ${f.sha256.slice(0, 12)}… (corrupt or wrong file).`,
+      );
+    }
   }
 
   // Only now is the file safe for a provisioner to see.
