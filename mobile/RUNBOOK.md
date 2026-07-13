@@ -46,11 +46,10 @@ Pinned stack (do not drift — model-contract §6): `react-native-executorch@0.4
 >   peer dep) — **pinned, not latest.** Its 0.8.0+ line requires
 >   react-native 0.81+; this project is on react-native 0.79.5.
 >
-> Any APK built *before* this change (including `lifepilot-preview.apk`
-> referenced in the Quick Start above) does **not** include any of this —
-> you need a **fresh `npm install` + `expo prebuild` + EAS build**. Before
-> spending a full EAS build cycle re-checking a fix, reproduce the two
-> failure points locally first — much faster than a cloud build cycle:
+> The released `lifepilot-v1.0.0.apk` already includes all of this. Only an
+> APK built *before* this change lacks it — if you rebuild from source and hit
+> either failure point, reproduce it locally first rather than spending a full
+> cloud build cycle:
 > ```bash
 > # Reproduces EAS's EAGER_BUNDLE phase (JS/Metro resolution errors):
 > npx expo export:embed --eager --platform android --dev false \
@@ -67,20 +66,21 @@ Pinned stack (do not drift — model-contract §6): `react-native-executorch@0.4
 
 ## Quick start (reviewer path — standalone build, no Metro required)
 
-This uses the `preview` EAS build profile, which bundles the JS into the APK
-itself — unlike a `development` build, it does **not** need Metro running.
+This is a standalone release build — the JS is bundled into the APK itself, so
+unlike a `development` build it does **not** need Metro running.
 Install the APK, push the model files once, launch the app.
 
 ### 0. Prerequisites
 - Android phone or emulator, **USB or Wireless debugging enabled**, `adb` on PATH.
-- The release APK (`lifepilot-preview.apk`) and the model bundle
-  (`lifepilot-models.zip`) — both attached to the submission's GitHub Release.
+- The release APK (`lifepilot-v1.0.0.apk`, ~103 MB) and the model bundle
+  (`lifepilot-models.zip`, ~1.2 GB) — both attached to the
+  [v1.0.0 GitHub Release](https://github.com/peacestate/lifepilot/releases/tag/v1.0.0).
   (Model files are **not** in the git repo — they're large binaries, gitignored
   by design; see `.gitignore` → `**/*.pte`, `/models/`.)
 
 ### 1. Install the APK
 ```bash
-adb install lifepilot-preview.apk
+adb install lifepilot-v1.0.0.apk
 ```
 
 ### 2. Unzip the model bundle

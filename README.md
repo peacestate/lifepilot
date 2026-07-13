@@ -10,11 +10,15 @@ All four features running live, on-device, in airplane mode:
 
 https://github.com/user-attachments/assets/f80ce6b2-5b4d-40c4-a36a-84752677d05c
 
-The video is the primary evidence this app works end-to-end. For a technical reviewer
-who wants to reproduce that themselves (install APK, push model files, launch),
-see **[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** for exact, copy-pasteable
-`adb` commands. Running it yourself is not required to evaluate the
-submission — the video is.
+The video is the primary evidence this app works end-to-end. Running it yourself is not
+required to evaluate the submission — but if you want to, everything you need is on the
+**[v1.0.0 Release](https://github.com/peacestate/lifepilot/releases/tag/v1.0.0)**:
+
+- **`lifepilot-v1.0.0.apk`** (~103 MB) — the Android app itself. No build required.
+- **`lifepilot-models.zip`** (~1.2 GB) — the on-device models, pushed once via `adb`.
+
+**[`mobile/RUNBOOK.md`](mobile/RUNBOOK.md)** has the exact, copy-pasteable `adb`
+commands — about 10 minutes, most of it the one-time model push.
 
 ## AMD compute usage
 
