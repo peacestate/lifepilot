@@ -15,6 +15,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import { LiteParseWebView } from './src/core/liteparse/LiteParseWebView';
 import { LlamaProvider } from './src/core/llm/LlamaProvider';
+import { areModelsReady } from './src/core/modelDownload/ModelDownloader';
 import { attachGlassesOutput } from './src/core/nudges/glassesOutput';
 import { attachNotificationOutput } from './src/core/nudges/notificationOutput';
 import { nudgeScheduler } from './src/core/nudges/nudgeScheduler';
@@ -28,13 +29,14 @@ import EnergyScreen from './src/screens/EnergyScreen';
 import ExpenseScreen from './src/screens/ExpenseScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import HydrationScreen from './src/screens/HydrationScreen';
+import { ModelSetupScreen } from './src/screens/ModelSetupScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { PastTasksScreen } from './src/screens/PastTasksScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import OverwhelmManagerScreen from './src/screens/OverwhelmScreen';
 import { color, layout, space, type as typeToken } from './src/theme/tokens';
 
-type Screen = 'loading' | 'onboarding' | 'home' | FeatureKey | 'settings' | 'overwhelmHistory';
+type Screen = 'loading' | 'onboarding' | 'setup' | 'home' | FeatureKey | 'settings' | 'overwhelmHistory';
 
 const FEATURE_TITLES: Partial<Record<FeatureKey, string>> = {
   overwhelm: 'Overwhelm Manager',
@@ -123,17 +125,23 @@ export default function App() {
     };
   }, []);
 
-  // Determine start screen from persisted flag.
+  // Determine start screen from persisted flag + whether the models are on disk.
+  // A device provisioned over adb (RUNBOOK.md) already has them and skips setup.
   useEffect(() => {
-    getFlag('onboardingDone').then((done) => {
-      setScreen(done ? 'home' : 'onboarding');
+    Promise.all([getFlag('onboardingDone'), areModelsReady()]).then(([done, ready]) => {
+      if (!done) return setScreen('onboarding');
+      setScreen(ready ? 'home' : 'setup');
     });
   }, []);
 
   const finishOnboarding = useCallback(() => {
     void setFlag('onboardingDone');
-    setScreen('home');
+    // Re-check rather than trusting the mount-time result: onboarding asks for
+    // permissions and can sit open for a while.
+    areModelsReady().then((ready) => setScreen(ready ? 'home' : 'setup'));
   }, []);
+
+  const finishSetup = useCallback(() => setScreen('home'), []);
 
   const navigate = useCallback((s: FeatureKey | 'settings') => setScreen(s), []);
   const goHome = useCallback(() => setScreen('home'), []);
@@ -152,7 +160,7 @@ export default function App() {
         setScreen('overwhelm');
         return true;
       }
-      if (screen !== 'home' && screen !== 'onboarding' && screen !== 'loading') {
+      if (screen !== 'home' && screen !== 'onboarding' && screen !== 'loading' && screen !== 'setup') {
         goHome();
         return true;
       }
@@ -163,6 +171,26 @@ export default function App() {
 
   if (screen === 'loading') return null;
 
+  // Onboarding and setup render OUTSIDE LlamaProvider on purpose. The provider
+  // starts provisioning the moment it mounts, so mounting it before the model
+  // files exist would fail — and useLLM's error is sticky per instance, poisoning
+  // the state the setup screen is trying to fix. Keeping it unmounted means it
+  // gets a clean first load once the weights are actually on disk.
+  if (screen === 'onboarding' || screen === 'setup') {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.root}>
+          <StatusBar style="dark" />
+          {screen === 'onboarding' ? (
+            <OnboardingScreen onDone={finishOnboarding} />
+          ) : (
+            <ModelSetupScreen onDone={finishSetup} />
+          )}
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <LlamaProvider>
@@ -171,7 +199,6 @@ export default function App() {
           <NudgeChecks />
           <LiteParseWebView />
 
-          {screen === 'onboarding' && <OnboardingScreen onDone={finishOnboarding} />}
           {screen === 'home' && <HomeScreen onNavigate={navigate} />}
           {(screen === 'overwhelm' || screen === 'energy' || screen === 'hydration' || screen === 'expense') && (
             <FeatureShell title={FEATURE_TITLES[screen] ?? screen} onBack={goHome}>
