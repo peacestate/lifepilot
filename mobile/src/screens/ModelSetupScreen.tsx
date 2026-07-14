@@ -22,6 +22,7 @@ import {
   downloadModels,
   formatBytes,
   getMissing,
+  TOTAL_BYTES,
   type DownloadProgress,
 } from '../core/modelDownload/ModelDownloader';
 import { color, layout, radii, space, type } from '../theme/tokens';
@@ -68,7 +69,17 @@ export function ModelSetupScreen({ onDone }: Props) {
   }, [onDone]);
 
   const pct = progress ? Math.round(progress.fraction * 100) : 0;
-  const size = missingBytes != null ? formatBytes(missingBytes) : '~1.5 GB';
+
+  // Two different numbers, and conflating them is what confuses people: the model set is
+  // always 1.52 GB, but a resumed setup only has to *fetch* what's left. Show the total as
+  // the anchor and the remainder as the cost, never the remainder alone — a user who has
+  // already pulled 250 MB should not be greeted by a screen that says "1.26 GB" with no
+  // hint that it counted their progress.
+  const remaining = missingBytes ?? TOTAL_BYTES;
+  const done = TOTAL_BYTES - remaining;
+  const partial = done > 0;
+  const totalLabel = formatBytes(TOTAL_BYTES);
+  const remainingLabel = formatBytes(remaining);
 
   return (
     <SafeAreaView style={styles.root}>
@@ -78,11 +89,12 @@ export function ModelSetupScreen({ onDone }: Props) {
         {phase !== 'downloading' && (
           <>
             <Text style={styles.title} maxFontSizeMultiplier={1.3}>
-              One-time setup
+              {partial ? 'Resume setup' : 'One-time setup'}
             </Text>
             <Text style={styles.body}>
-              LifePilot runs its AI on your phone, so it needs to fetch its models once —
-              about {size}.
+              {partial
+                ? `You've downloaded ${formatBytes(done)} of ${totalLabel} so far. ${remainingLabel} to go — nothing is downloaded twice.`
+                : `LifePilot runs its AI on your phone, so it needs to fetch its models once — about ${totalLabel}.`}
             </Text>
             <View style={styles.note}>
               <Text style={styles.noteText}>
@@ -122,7 +134,8 @@ export function ModelSetupScreen({ onDone }: Props) {
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
             <Text style={styles.caption}>
-              Finished files are kept — retrying picks up where it stopped.
+              Nothing already downloaded is fetched twice — retrying picks up from the exact
+              byte it stopped at.
             </Text>
           </View>
         )}
@@ -131,7 +144,13 @@ export function ModelSetupScreen({ onDone }: Props) {
       {phase !== 'downloading' && (
         <View style={styles.footer}>
           <PrimaryButton
-            label={phase === 'error' ? 'Try again' : `Download models · ${size}`}
+            label={
+              phase === 'error'
+                ? 'Try again'
+                : partial
+                  ? `Resume · ${remainingLabel} left`
+                  : `Download models · ${totalLabel}`
+            }
             onPress={start}
           />
         </View>

@@ -16,12 +16,15 @@
  * - Writes to `${documentDirectory}models/<feature>/<filename>` — byte-for-byte the
  *   same paths the provisioners already read and the adb route already writes. A
  *   device provisioned by either route needs nothing from the other.
- * - Idempotent + resumable at file granularity: a file already on disk at the
- *   catalogued size is skipped, so an interrupted run continues rather than restarts.
- * - Atomic per file: downloads to `<name>.part`, verifies the byte size, and only
- *   then moves it into place. A half-written `.pte` can never be seen by a
- *   provisioner, which would otherwise hand a truncated file to the native runtime
- *   and hard-crash it.
+ * - Atomic per file: downloads to a `.part` sidecar, verifies it, and only then moves
+ *   it into place. A half-written `.pte` can never be seen by a provisioner, which
+ *   would otherwise hand a truncated file to the native runtime and hard-crash it.
+ * - Resumable *byte-wise*, not just file-wise. A dropped connection keeps the `.part`
+ *   and the next attempt re-requests only the remainder (`Range: bytes=<n>-`). This
+ *   matters more than it sounds: the set is 1.5 GB and one 1.2 GB file dominates it,
+ *   so restarting that file on a blip means re-spending a gigabyte of someone's mobile
+ *   data — and this app is downloaded over mobile data. The resume offset is simply the
+ *   `.part`'s size on disk, so it survives the app being killed mid-download too.
  * - Verification is by byte size, matching what the provisioners do. The catalog
  *   also carries each file's sha256 (checked at publish time by
  *   scripts/build-model-catalog.js); hashing 1.2 GB in JS on a phone is far too slow
@@ -47,12 +50,21 @@ export type DownloadProgress = {
   totalFiles: number;
   /** Feature the current file belongs to, e.g. "overwhelm". */
   feature: string;
-  /** Bytes fetched across the whole run (excludes files already present). */
+  /**
+   * Bytes of the model set now on disk — *including* whatever an earlier run left behind.
+   *
+   * Quoted against the whole set, not against what's left to fetch. Someone who already
+   * pulled 250 MB and comes back must see "17% of 1.52 GB", not "3% of 1.26 GB": the
+   * latter reads as if their download restarted, which is the exact anxiety this screen
+   * exists to avoid.
+   */
   receivedBytes: number;
-  /** Bytes still to fetch when the run started. */
+  /** Size of the whole model set — constant across runs. */
   totalBytes: number;
-  /** 0..1 across the whole run. */
+  /** 0..1 across the whole model set. */
   fraction: number;
+  /** Bytes actually pulled from the network in this run — i.e. the data this run cost. */
+  fetchedBytes: number;
 };
 
 export class ModelDownloadError extends Error {
@@ -99,6 +111,42 @@ function dirFor(feature: string): string {
 const uriFor = (f: CatalogFile) => `${dirFor(f.feature)}/${f.target}`;
 
 /**
+ * The partial download for a file, named for the *content* it is accumulating.
+ *
+ * Resuming appends to whatever prefix is already on disk, so resuming onto a `.part`
+ * left by a different model version would append new bytes to a stale prefix and
+ * produce a file that is the right length and quietly wrong. Naming the part after the
+ * expected sha means a part from another version simply isn't a resume candidate — it
+ * has a different name, and gets swept by discardStaleParts.
+ */
+const partUriFor = (f: CatalogFile) => `${uriFor(f)}.${f.sha256.slice(0, 12)}.part`;
+
+/**
+ * How many bytes of `f` are already downloaded and safe to resume from.
+ *
+ * A part at or past the full size is not a resume point — it's junk (e.g. a server that
+ * ignored our Range header and sent the whole body, which the native side appended).
+ * Report 0 so the caller restarts the file clean.
+ */
+async function partBytes(f: CatalogFile): Promise<number> {
+  const info = await FileSystem.getInfoAsync(partUriFor(f), { size: true });
+  if (!info.exists || typeof info.size !== 'number') return 0;
+  return info.size > 0 && info.size < f.bytes ? info.size : 0;
+}
+
+/** Drop any `.part` for this target that isn't the one we'd resume — other versions, older naming. */
+async function discardStaleParts(f: CatalogFile): Promise<void> {
+  const dir = dirFor(f.feature);
+  const keep = partUriFor(f).slice(dir.length + 1);
+  const names = await FileSystem.readDirectoryAsync(dir).catch(() => [] as string[]);
+  await Promise.all(
+    names
+      .filter((n) => n !== keep && n.startsWith(`${f.target}.`) && n.endsWith('.part'))
+      .map((n) => FileSystem.deleteAsync(`${dir}/${n}`, { idempotent: true }).catch(() => {})),
+  );
+}
+
+/**
  * True when the file on disk is the one we expect — right size, and for small
  * files the right contents too. A same-size file with different bytes (a stale
  * model from an earlier build) counts as missing and gets replaced.
@@ -117,11 +165,16 @@ async function isPresent(f: CatalogFile): Promise<boolean> {
   }
 }
 
-/** Which model files are still missing (or truncated), and how many bytes that is. */
+/**
+ * Which model files are still missing (or truncated), and how many bytes it would
+ * actually cost to finish them — bytes already sitting in a `.part` are not charged
+ * again, so a resumed setup screen quotes what's left, not the full 1.5 GB.
+ */
 export async function getMissing(): Promise<{ missing: CatalogFile[]; missingBytes: number }> {
   const flags = await Promise.all(FILES.map(isPresent));
   const missing = FILES.filter((_, i) => !flags[i]);
-  return { missing, missingBytes: missing.reduce((n, f) => n + f.bytes, 0) };
+  const have = await Promise.all(missing.map(partBytes));
+  return { missing, missingBytes: missing.reduce((n, f, i) => n + f.bytes - have[i], 0) };
 }
 
 /** True when every model the app needs is on disk. */
@@ -140,43 +193,85 @@ export function formatBytes(n: number): string {
 }
 
 let cancelled = false;
-/** Abort an in-flight run. The next file boundary stops; partial files are kept for resume. */
+let active: FileSystem.DownloadResumable | null = null;
+
+/**
+ * Abort an in-flight run, keeping partial files so the next run resumes from them.
+ *
+ * This stops the transfer *now* rather than at the next file boundary. Waiting for the
+ * boundary would mean tapping Cancel on the 1.2 GB Llama does nothing visible for many
+ * minutes while the download keeps spending the user's data.
+ */
 export function cancelDownload(): void {
   cancelled = true;
+  // Rejects if the task already finished; nothing to stop in that case.
+  active?.pauseAsync().catch(() => {});
 }
 
-async function downloadOne(f: CatalogFile, onBytes: (delta: number) => void): Promise<void> {
+/**
+ * Fetch one file into place, resuming from any bytes already downloaded.
+ *
+ * `onWritten` reports bytes present in the file overall (the resumed prefix included),
+ * not a delta — deltas can't survive a retry that restarts the file.
+ */
+async function downloadOne(f: CatalogFile, onWritten: (writtenTotal: number) => void): Promise<void> {
   const dir = dirFor(f.feature);
   await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => {
     /* already exists */
   });
 
   const finalUri = uriFor(f);
-  const partUri = `${finalUri}.part`;
-  // A stale .part from a previous failed attempt would corrupt this one.
-  await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+  const partUri = partUriFor(f);
+  const discardPart = () => FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
 
-  let lastWritten = 0;
+  await discardStaleParts(f);
+  const offset = await partBytes(f);
+  // Zero means whatever is there (if anything) is unusable, not that nothing is there.
+  if (offset === 0) await discardPart();
+
+  let written = offset;
   const task = FileSystem.createDownloadResumable(
     `${BASE_URL}${f.asset}`,
     partUri,
     {},
     ({ totalBytesWritten }) => {
-      onBytes(totalBytesWritten - lastWritten);
-      lastWritten = totalBytesWritten;
+      written = totalBytesWritten;
+      onWritten(written);
     },
+    // Native turns this into `Range: bytes=<offset>-` and opens the file for append.
+    offset > 0 ? String(offset) : undefined,
   );
 
-  const result = await task.downloadAsync();
-  if (!result) throw new ModelDownloadError(`${f.asset}: download returned no result.`);
-  if (result.status !== 200) {
-    await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+  active = task;
+  let result;
+  try {
+    result = await task.downloadAsync();
+  } finally {
+    active = null;
+  }
+
+  // Cancelled or paused — the .part is exactly the resume point, so leave it alone.
+  if (!result) {
+    throw new ModelDownloadError(`${f.asset}: interrupted at ${written} of ${f.bytes} bytes.`);
+  }
+
+  // 206 is the success code for the ranged request a resume makes; 200 for a fresh one.
+  if (result.status !== 200 && result.status !== 206) {
+    await discardPart();
     throw new ModelDownloadError(`${f.asset}: HTTP ${result.status}.`);
+  }
+
+  // We asked for a range and got the whole body instead. The native side appended it to
+  // the prefix we already had, so the .part is now a corrupt splice. Not recoverable —
+  // drop it and let the retry start the file clean.
+  if (offset > 0 && result.status === 200) {
+    await discardPart();
+    throw new ModelDownloadError(`${f.asset}: server ignored Range (HTTP 200 on resume).`);
   }
 
   const info = await FileSystem.getInfoAsync(partUri, { size: true });
   if (!info.exists || info.size !== f.bytes) {
-    await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+    await discardPart();
     throw new ModelDownloadError(
       `${f.asset}: got ${info.exists ? info.size : 0} bytes, expected ${f.bytes} (truncated or interrupted).`,
     );
@@ -185,7 +280,7 @@ async function downloadOne(f: CatalogFile, onBytes: (delta: number) => void): Pr
   if (f.bytes <= HASH_MAX_BYTES) {
     const got = await hashFile(partUri);
     if (got !== f.sha256) {
-      await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+      await discardPart();
       throw new ModelDownloadError(
         `${f.asset}: sha256 ${got.slice(0, 12)}… != expected ${f.sha256.slice(0, 12)}… (corrupt or wrong file).`,
       );
@@ -209,15 +304,22 @@ export async function downloadModels(onProgress?: (p: DownloadProgress) => void)
   const { missing, missingBytes } = await getMissing();
   if (missing.length === 0) return;
 
-  let received = 0;
+  // Bytes each file already had when this run started, so the run doesn't re-charge them.
+  const have = await Promise.all(missing.map(partBytes));
+
+  // Complete files plus partial .parts — everything a previous run already paid for.
+  const alreadyOnDisk = TOTAL_BYTES - missingBytes;
+
+  let fetched = 0;
   const emit = (fileIndex: number, feature: string) =>
     onProgress?.({
       fileIndex,
       totalFiles: missing.length,
       feature,
-      receivedBytes: received,
-      totalBytes: missingBytes,
-      fraction: missingBytes > 0 ? Math.min(received / missingBytes, 1) : 1,
+      fetchedBytes: fetched,
+      receivedBytes: alreadyOnDisk + fetched,
+      totalBytes: TOTAL_BYTES,
+      fraction: TOTAL_BYTES > 0 ? Math.min((alreadyOnDisk + fetched) / TOTAL_BYTES, 1) : 1,
     });
 
   for (let i = 0; i < missing.length; i++) {
@@ -225,17 +327,17 @@ export async function downloadModels(onProgress?: (p: DownloadProgress) => void)
     if (cancelled) throw new ModelDownloadError('cancelled.');
 
     emit(i + 1, f.feature);
-    const atFileStart = received;
+    const atFileStart = fetched;
 
     let lastErr: unknown;
     let ok = false;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS && !ok; attempt++) {
       try {
-        // Each retry restarts this file, so rewind the counter to avoid
-        // double-counting the bytes the failed attempt already reported.
-        received = atFileStart;
-        await downloadOne(f, (delta) => {
-          received += delta;
+        await downloadOne(f, (writtenTotal) => {
+          // writtenTotal is absolute within the file, so this is correct whether the
+          // attempt resumed or started over. It's clamped because a retry that had to
+          // restart the file reports from 0 again, and the bar must not run backwards.
+          fetched = atFileStart + Math.max(0, writtenTotal - have[i]);
           emit(i + 1, f.feature);
         });
         ok = true;
@@ -253,7 +355,7 @@ export async function downloadModels(onProgress?: (p: DownloadProgress) => void)
       throw new ModelDownloadError(`${f.asset} failed after ${MAX_ATTEMPTS} attempts — ${detail}`);
     }
 
-    received = atFileStart + f.bytes; // exact, in case progress callbacks under-reported
+    fetched = atFileStart + (f.bytes - have[i]); // exact, in case progress callbacks under-reported
     emit(i + 1, f.feature);
   }
 }
