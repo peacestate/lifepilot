@@ -25,20 +25,20 @@ type Props = { onDone: () => void };
 const STEPS = [
   {
     glyph: '◉',
-    title: 'LifePilot',
-    body: 'A calm co-pilot for overwhelm, energy, hydration, and spending.\nAll on your phone — no accounts, no servers.',
+    title: 'For when starting is the hardest part',
+    body: 'A task that feels too big to begin. A day that got away from you.\nTell LifePilot what’s overwhelming you and it breaks it into small, doable steps — and quietly watches your energy, water, and spending too.',
     cta: 'Get started',
   },
   {
     glyph: '◎',
-    title: 'Your data stays on your phone',
-    body: 'Every AI feature runs directly on your device using on-device models.\nNothing you type or track ever leaves your phone.',
+    title: 'What overwhelms you is nobody’s business',
+    body: 'The AI itself lives on your phone, so nothing you type or track ever leaves it.\nNo account, no cloud, no one reading over your shoulder — not even us. Everything works in airplane mode.',
     cta: 'Got it',
   },
   {
     glyph: '◐',
-    title: 'Stay gently reminded',
-    body: 'LifePilot can send quiet nudges — a drink reminder, focus window alert, or next step.\nYou can change this any time in Settings.',
+    title: 'A quiet tap on the shoulder',
+    body: 'Out of sight slips out of mind — that’s not a flaw, it’s how busy brains work.\nLifePilot can gently resurface the next step, a sip of water, or your best focus window. Never pushy, and you can change it any time in Settings.',
     cta: 'Turn on nudges',
   },
 ] as const;
