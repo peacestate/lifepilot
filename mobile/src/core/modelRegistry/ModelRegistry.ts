@@ -24,6 +24,7 @@
 
 import * as FileSystem from 'expo-file-system';
 
+import { base64ToBytes, sha256 } from '../modelDownload/sha256';
 import bundled from './registry.bundled.json';
 import type {
   ActiveModel,
@@ -57,6 +58,22 @@ function pickLatest(list: ModelDescriptor[] | undefined, channel: ReleaseChannel
     .filter((d) => d.channel === 'stable' || d.channel === channel)
     .sort((a, b) => cmpSemver(b.version, a.version));
   return eligible[0];
+}
+
+/**
+ * Files at or under this size are content-checked by sha256; larger ones by byte
+ * size alone. Same bound and rationale as ModelDownloader: size alone cannot tell
+ * a stale model from the right one (two energy models were byte-identical in
+ * length), but hashing a 1.2 GB .pte in JS would blow memory and take minutes.
+ */
+const HASH_MAX_BYTES = 8 * 1024 * 1024;
+
+/** sha256 of a file already on disk. Only call for files <= HASH_MAX_BYTES. */
+async function hashFile(uri: string): Promise<string> {
+  const b64 = await FileSystem.readAsStringAsync(uri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return sha256(base64ToBytes(b64));
 }
 
 const dir = () => `${FileSystem.documentDirectory}models`;
@@ -142,12 +159,24 @@ export class ModelRegistry {
       const url = `${d.source.baseUrl.replace(/\/$/, '')}/${name}`;
       const dest = `${target}/${name}`;
       await FileSystem.downloadAsync(url, dest); // model-in only
+      const key = keyForFile(d, name);
+      const info = await FileSystem.getInfoAsync(dest, { size: true });
+      const size = info.exists && typeof info.size === 'number' ? info.size : 0;
       // fast integrity guard: byte size
-      const want = d.bytes?.[keyForFile(d, name)];
-      if (want != null) {
-        const info = await FileSystem.getInfoAsync(dest, { size: true });
-        if (info.exists && info.size !== want) {
-          throw new Error(`${name}: size ${info.size} != manifest ${want} (corrupt/partial)`);
+      const want = d.bytes?.[key];
+      if (want != null && size !== want) {
+        await FileSystem.deleteAsync(dest, { idempotent: true }).catch(() => {});
+        throw new Error(`${name}: size ${size} != manifest ${want} (corrupt/partial)`);
+      }
+      // content guard: sha256, for files small enough to hash in JS
+      const wantHash = d.sha256?.[key];
+      if (wantHash && size > 0 && size <= HASH_MAX_BYTES) {
+        const got = await hashFile(dest);
+        if (got !== wantHash) {
+          await FileSystem.deleteAsync(dest, { idempotent: true }).catch(() => {});
+          throw new Error(
+            `${name}: sha256 ${got.slice(0, 12)}… != manifest ${wantHash.slice(0, 12)}… (corrupt or wrong file)`,
+          );
         }
       }
       onProgress?.((i + 1) / names.length);
