@@ -15,7 +15,11 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 import { LiteParseWebView } from './src/core/liteparse/LiteParseWebView';
 import { LlamaProvider } from './src/core/llm/LlamaProvider';
-import { areModelsReady } from './src/core/modelDownload/ModelDownloader';
+import {
+  areModelsReady,
+  CORE_FEATURES,
+  OVERWHELM_FEATURES,
+} from './src/core/modelDownload/ModelDownloader';
 import { attachGlassesOutput } from './src/core/nudges/glassesOutput';
 import { attachNotificationOutput } from './src/core/nudges/notificationOutput';
 import { nudgeScheduler } from './src/core/nudges/nudgeScheduler';
@@ -113,6 +117,11 @@ function NudgeChecks() {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('loading');
+  // Whether the Overwhelm bundle (Llama + embeddings + Whisper, ~1.5 GB) is on disk.
+  // Core models are a few hundred KB and gate first-run setup; the big bundle is
+  // fetched lazily the first time the Overwhelm Manager is opened, so someone who
+  // only wants the Hydration Tracker never downloads the Llama.
+  const [llamaEnabled, setLlamaEnabled] = useState(false);
 
   // Wire nudge outputs + start scheduler once on mount.
   useEffect(() => {
@@ -128,9 +137,14 @@ export default function App() {
   // Determine start screen from persisted flag + whether the models are on disk.
   // A device provisioned over adb (RUNBOOK.md) already has them and skips setup.
   useEffect(() => {
-    Promise.all([getFlag('onboardingDone'), areModelsReady()]).then(([done, ready]) => {
+    Promise.all([
+      getFlag('onboardingDone'),
+      areModelsReady(CORE_FEATURES),
+      areModelsReady(OVERWHELM_FEATURES),
+    ]).then(([done, coreReady, overwhelmReady]) => {
+      setLlamaEnabled(overwhelmReady);
       if (!done) return setScreen('onboarding');
-      setScreen(ready ? 'home' : 'setup');
+      setScreen(coreReady ? 'home' : 'setup');
     });
   }, []);
 
@@ -138,7 +152,7 @@ export default function App() {
     void setFlag('onboardingDone');
     // Re-check rather than trusting the mount-time result: onboarding asks for
     // permissions and can sit open for a while.
-    areModelsReady().then((ready) => setScreen(ready ? 'home' : 'setup'));
+    areModelsReady(CORE_FEATURES).then((ready) => setScreen(ready ? 'home' : 'setup'));
   }, []);
 
   const finishSetup = useCallback(() => setScreen('home'), []);
@@ -193,7 +207,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <LlamaProvider>
+      <LlamaProvider enabled={llamaEnabled}>
         <View style={styles.root}>
           <StatusBar style="dark" />
           <NudgeChecks />
@@ -202,7 +216,17 @@ export default function App() {
           {screen === 'home' && <HomeScreen onNavigate={navigate} />}
           {(screen === 'overwhelm' || screen === 'energy' || screen === 'hydration' || screen === 'expense') && (
             <FeatureShell title={FEATURE_TITLES[screen] ?? screen} onBack={goHome}>
-              {screen === 'overwhelm' && (
+              {screen === 'overwhelm' && !llamaEnabled && (
+                // Lazy Overwhelm-bundle download, first open only. Safe to render inside
+                // LlamaProvider because enabled=false means it hasn't provisioned yet —
+                // flipping it on after onDone gives useLLM its normal clean first load.
+                <ModelSetupScreen
+                  features={OVERWHELM_FEATURES}
+                  intro="The Overwhelm Manager thinks with a full language model that lives on your phone. It needs a one-time download — everything after that works offline, even in airplane mode."
+                  onDone={() => setLlamaEnabled(true)}
+                />
+              )}
+              {screen === 'overwhelm' && llamaEnabled && (
                 <OverwhelmManagerScreen onOpenHistory={() => setScreen('overwhelmHistory')} />
               )}
               {screen === 'energy' && <EnergyScreen />}

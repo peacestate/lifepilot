@@ -307,6 +307,24 @@ describe('ModelDownloader', () => {
     expect(disk().has(SMALL)).toBe(false); // never moved into place
   });
 
+  it('scopes to a feature subset: fetching only energy never touches the Llama', async () => {
+    const m = relaunch();
+    const small = origin().get('energy__small.pte')!;
+
+    const seen: { totalBytes: number; fraction: number }[] = [];
+    await m.downloadModels((p) => seen.push(p), ['energy']);
+
+    expect(await m.areModelsReady(['energy'])).toBe(true);
+    expect(await m.areModelsReady()).toBe(false); // the big bundle is still deferred
+    expect(disk().has(BIG)).toBe(false);
+    expect(server.transferred).toBe(small.length); // not one byte of the Llama billed
+
+    // Progress and quotes anchor to the subset, not the whole 1.5 GB set.
+    expect(seen[0].totalBytes).toBe(small.length);
+    expect(seen[seen.length - 1].fraction).toBe(1);
+    expect((await m.getMissing(['energy'])).missingBytes).toBe(0);
+  });
+
   it('leaves nothing behind that a provisioner could load half-written', async () => {
     const { downloadModels } = relaunch();
     server.dropAfter = 1024;

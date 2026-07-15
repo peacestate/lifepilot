@@ -79,6 +79,24 @@ const BASE_URL = catalog.baseUrl as string;
 const MAX_ATTEMPTS = 3;
 
 /**
+ * Feature groups for lazy provisioning. CORE is what the app needs to open at all —
+ * a few hundred KB, near-instant even on mobile data. The Overwhelm bundle (the 1B
+ * Llama plus its embeddings and Whisper voice models) is ~1.5 GB and is fetched the
+ * first time the Overwhelm Manager is opened, not up front: someone who only wants
+ * the Hydration Tracker never pays for the Llama.
+ */
+export const CORE_FEATURES: readonly string[] = ['energy', 'hydration', 'expense'];
+export const OVERWHELM_FEATURES: readonly string[] = ['overwhelm', 'embeddings', 'voice'];
+
+const filesFor = (features?: readonly string[]): CatalogFile[] =>
+  features ? FILES.filter((f) => features.includes(f.feature)) : FILES;
+
+/** Total size of a feature subset (or the whole set), for UI copy and progress. */
+export function totalBytesFor(features?: readonly string[]): number {
+  return filesFor(features).reduce((n, f) => n + f.bytes, 0);
+}
+
+/**
  * Files at or under this size are checked by sha256; larger ones by byte size alone.
  *
  * Size is not a sufficient check. The pre-AMD energy model and the AMD-trained one
@@ -170,16 +188,19 @@ async function isPresent(f: CatalogFile): Promise<boolean> {
  * actually cost to finish them — bytes already sitting in a `.part` are not charged
  * again, so a resumed setup screen quotes what's left, not the full 1.5 GB.
  */
-export async function getMissing(): Promise<{ missing: CatalogFile[]; missingBytes: number }> {
-  const flags = await Promise.all(FILES.map(isPresent));
-  const missing = FILES.filter((_, i) => !flags[i]);
+export async function getMissing(
+  features?: readonly string[],
+): Promise<{ missing: CatalogFile[]; missingBytes: number }> {
+  const scope = filesFor(features);
+  const flags = await Promise.all(scope.map(isPresent));
+  const missing = scope.filter((_, i) => !flags[i]);
   const have = await Promise.all(missing.map(partBytes));
   return { missing, missingBytes: missing.reduce((n, f, i) => n + f.bytes - have[i], 0) };
 }
 
-/** True when every model the app needs is on disk. */
-export async function areModelsReady(): Promise<boolean> {
-  const { missing } = await getMissing();
+/** True when every model in the subset (default: all of them) is on disk. */
+export async function areModelsReady(features?: readonly string[]): Promise<boolean> {
+  const { missing } = await getMissing(features);
   return missing.length === 0;
 }
 
@@ -298,17 +319,21 @@ async function downloadOne(f: CatalogFile, onWritten: (writtenTotal: number) => 
  * parallel on purpose: these are large files on a phone, and several concurrent
  * multi-hundred-MB writes is how you get an out-of-memory kill on a mid-range device.
  */
-export async function downloadModels(onProgress?: (p: DownloadProgress) => void): Promise<void> {
+export async function downloadModels(
+  onProgress?: (p: DownloadProgress) => void,
+  features?: readonly string[],
+): Promise<void> {
   cancelled = false;
 
-  const { missing, missingBytes } = await getMissing();
+  const setBytes = totalBytesFor(features);
+  const { missing, missingBytes } = await getMissing(features);
   if (missing.length === 0) return;
 
   // Bytes each file already had when this run started, so the run doesn't re-charge them.
   const have = await Promise.all(missing.map(partBytes));
 
   // Complete files plus partial .parts — everything a previous run already paid for.
-  const alreadyOnDisk = TOTAL_BYTES - missingBytes;
+  const alreadyOnDisk = setBytes - missingBytes;
 
   let fetched = 0;
   const emit = (fileIndex: number, feature: string) =>
@@ -318,8 +343,8 @@ export async function downloadModels(onProgress?: (p: DownloadProgress) => void)
       feature,
       fetchedBytes: fetched,
       receivedBytes: alreadyOnDisk + fetched,
-      totalBytes: TOTAL_BYTES,
-      fraction: TOTAL_BYTES > 0 ? Math.min((alreadyOnDisk + fetched) / TOTAL_BYTES, 1) : 1,
+      totalBytes: setBytes,
+      fraction: setBytes > 0 ? Math.min((alreadyOnDisk + fetched) / setBytes, 1) : 1,
     });
 
   for (let i = 0; i < missing.length; i++) {

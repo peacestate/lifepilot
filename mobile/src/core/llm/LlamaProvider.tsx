@@ -105,19 +105,33 @@ function serializeNativeGeneration<T>(task: () => Promise<T>): Promise<T> {
   return result;
 }
 
-export function LlamaProvider({ children }: { children: React.ReactNode }) {
+export function LlamaProvider({
+  children,
+  enabled = true,
+}: {
+  children: React.ReactNode;
+  /**
+   * When false, provisioning is deferred: the Overwhelm bundle downloads lazily on
+   * first open, so at app start the .pte may simply not exist yet. Provisioning then
+   * would set a provisionError that nothing ever retries. Flipping enabled to true
+   * (after the download completes) starts the same null→sources transition the
+   * mount-time path has always used, so useLLM loads exactly as before.
+   */
+  enabled?: boolean;
+}) {
   const [sources, setSources] = useState<{
     modelSource: string; tokenizerSource: string; tokenizerConfigSource: string;
   } | null>(null);
   const [provisionError, setProvisionError] = useState<unknown>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     provisionModel()
       .then((s) => { if (alive) setSources(s); })
       .catch((e: unknown) => { if (alive) setProvisionError(e); });
     return () => { alive = false; };
-  }, []);
+  }, [enabled]);
 
   const llm = useLLM({
     modelSource: sources?.modelSource,

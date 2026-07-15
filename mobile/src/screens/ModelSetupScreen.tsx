@@ -22,12 +22,18 @@ import {
   downloadModels,
   formatBytes,
   getMissing,
-  TOTAL_BYTES,
+  totalBytesFor,
   type DownloadProgress,
 } from '../core/modelDownload/ModelDownloader';
 import { color, layout, radii, space, type } from '../theme/tokens';
 
-type Props = { onDone: () => void };
+type Props = {
+  onDone: () => void;
+  /** Restrict to a feature subset (e.g. the Overwhelm bundle). Default: every model. */
+  features?: readonly string[];
+  /** Override the idle-state explanation (the "why this download exists" line). */
+  intro?: string;
+};
 type Phase = 'idle' | 'downloading' | 'error';
 
 const FEATURE_LABEL: Record<string, string> = {
@@ -39,34 +45,36 @@ const FEATURE_LABEL: Record<string, string> = {
   expense: 'Expense Scanner',
 };
 
-export function ModelSetupScreen({ onDone }: Props) {
+export function ModelSetupScreen({ onDone, features, intro }: Props) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missingBytes, setMissingBytes] = useState<number | null>(null);
 
+  const SET_BYTES = totalBytesFor(features);
+
   useEffect(() => {
     let alive = true;
-    getMissing()
+    getMissing(features)
       .then(({ missingBytes: n }) => alive && setMissingBytes(n))
       .catch(() => alive && setMissingBytes(null));
     return () => {
       alive = false;
       cancelDownload();
     };
-  }, []);
+  }, [features]);
 
   const start = useCallback(async () => {
     setPhase('downloading');
     setError(null);
     try {
-      await downloadModels(setProgress);
+      await downloadModels(setProgress, features);
       onDone();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setPhase('error');
     }
-  }, [onDone]);
+  }, [onDone, features]);
 
   const pct = progress ? Math.round(progress.fraction * 100) : 0;
 
@@ -75,10 +83,10 @@ export function ModelSetupScreen({ onDone }: Props) {
   // the anchor and the remainder as the cost, never the remainder alone — a user who has
   // already pulled 250 MB should not be greeted by a screen that says "1.26 GB" with no
   // hint that it counted their progress.
-  const remaining = missingBytes ?? TOTAL_BYTES;
-  const done = TOTAL_BYTES - remaining;
+  const remaining = missingBytes ?? SET_BYTES;
+  const done = SET_BYTES - remaining;
   const partial = done > 0;
-  const totalLabel = formatBytes(TOTAL_BYTES);
+  const totalLabel = formatBytes(SET_BYTES);
   const remainingLabel = formatBytes(remaining);
 
   return (
@@ -94,7 +102,8 @@ export function ModelSetupScreen({ onDone }: Props) {
             <Text style={styles.body}>
               {partial
                 ? `You've downloaded ${formatBytes(done)} of ${totalLabel} so far. ${remainingLabel} to go — nothing is downloaded twice.`
-                : `LifePilot runs its AI on your phone, so it needs to fetch its models once — about ${totalLabel}.`}
+                : (intro ??
+                  `LifePilot runs its AI on your phone, so it needs to fetch its models once — about ${totalLabel}.`)}
             </Text>
             <View style={styles.note}>
               <Text style={styles.noteText}>
