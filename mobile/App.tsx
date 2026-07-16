@@ -56,8 +56,34 @@ const APP_COPY = localized(
       'The Overwhelm Manager thinks with a full language model that lives on your phone. It needs a one-time download — everything after that works offline, even in airplane mode.',
   },
   {
-    overwhelmSetupIntro:
-      'Overwhelm Manager आपके फ़ोन पर रहने वाले एक पूरे भाषा मॉडल से सोचता है। इसे एक बार डाउनलोड करना होगा — उसके बाद सब कुछ ऑफ़लाइन चलता है, एयरप्लेन मोड में भी।',
+    es: {
+      overwhelmSetupIntro:
+        'El Overwhelm Manager piensa con un modelo de lenguaje completo que vive en tu teléfono. Necesita una única descarga — después, todo funciona sin conexión, incluso en modo avión.',
+    },
+    fr: {
+      overwhelmSetupIntro:
+        'L’Overwhelm Manager réfléchit avec un vrai modèle de langage qui vit sur votre téléphone. Un seul téléchargement suffit — ensuite, tout fonctionne hors ligne, même en mode avion.',
+    },
+    de: {
+      overwhelmSetupIntro:
+        'Der Overwhelm Manager denkt mit einem vollwertigen Sprachmodell, das auf deinem Handy lebt. Einmal herunterladen genügt — danach funktioniert alles offline, sogar im Flugmodus.',
+    },
+    it: {
+      overwhelmSetupIntro:
+        'L’Overwhelm Manager ragiona con un modello linguistico completo che vive sul tuo telefono. Serve un solo download — poi tutto funziona offline, anche in modalità aereo.',
+    },
+    pt: {
+      overwhelmSetupIntro:
+        'O Overwhelm Manager pensa com um modelo de linguagem completo que vive no seu telefone. Precisa de um único download — depois disso, tudo funciona offline, até em modo avião.',
+    },
+    hi: {
+      overwhelmSetupIntro:
+        'Overwhelm Manager आपके फ़ोन पर रहने वाले एक पूरे भाषा मॉडल से सोचता है। इसे एक बार डाउनलोड करना होगा — उसके बाद सब कुछ ऑफ़लाइन चलता है, एयरप्लेन मोड में भी।',
+    },
+    th: {
+      overwhelmSetupIntro:
+        'Overwhelm Manager คิดด้วยโมเดลภาษาเต็มรูปแบบที่อยู่บนโทรศัพท์ของคุณ ดาวน์โหลดครั้งเดียว — หลังจากนั้นทุกอย่างใช้งานออฟไลน์ได้ แม้ในโหมดเครื่องบิน',
+    },
   },
 );
 

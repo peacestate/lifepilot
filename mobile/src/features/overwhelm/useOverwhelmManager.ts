@@ -83,7 +83,7 @@ const toMessages = (userInput: string, systemPrompt: string): ChatMessage[] => [
   { role: 'user', content: userInput },
 ];
 
-/** Messages for breaking ONE step into smaller sub-steps. Locale-aware (Hindi output). */
+/** Messages for breaking ONE step into smaller sub-steps. Locale-aware output language. */
 const toSubMessages = (stepText: string, goal: string): ChatMessage[] => [
   { role: 'system', content: subStepSystemPromptFor(getLocale()) },
   { role: 'user', content: subStepUser(stepText, goal) },
@@ -304,12 +304,13 @@ export function useOverwhelmManager(): UseOverwhelmManager {
       void overwhelmDraft.save(trimmed);
       const respLen = () => responseRef.current.length;
       try {
-        // Step 1 + 2: retrieve memory → build contextual prompt. In Hindi the
-        // locale-specific prompt takes over (buildContextualPrompt returns the
-        // eval-locked English base prompt regardless of `past` — see its header).
+        // Step 1 + 2: retrieve memory → build contextual prompt. In any non-English
+        // locale the locale-specific prompt takes over (buildContextualPrompt returns
+        // the eval-locked English base prompt regardless of `past` — see its header).
         const past = await overwhelmMemory.retrieve(trimmed);
+        const locale = getLocale();
         const systemPrompt =
-          getLocale() === 'hi' ? systemPromptFor('hi') : buildContextualPrompt(past);
+          locale === 'en' ? buildContextualPrompt(past) : systemPromptFor(locale);
 
         // Step 3: generate — the ONE and only model call per submission (watchdogged so a
         // never-resolving native promise can't hang the screen forever). We deliberately do

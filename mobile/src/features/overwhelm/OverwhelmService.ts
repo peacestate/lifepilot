@@ -44,38 +44,53 @@ export const SUBSTEP_SYSTEM_PROMPT =
   'numbered list only. No intro text. No explanation.';
 
 /* ------------------------------------------------------------------ *
- * Hindi prompt variants — used only when the app locale is 'hi'.
+ * Non-English prompt variants — used only when the app locale isn't 'en'.
  *
- * DELIBERATELY separate constants: SYSTEM_PROMPT above is byte-locked to the eval
- * harness (20/20 report) and must not drift. These are the same instructions plus
- * an output-language directive (instruction stays English — Llama 3.2 follows
- * English instructions most reliably; Hindi is an officially supported output
- * language of the base model). ⚠️ NOT yet eval-verified: needs an on-device pass
- * (and ideally a Hindi eval set in ml/test/) before being treated as shipped.
+ * DELIBERATELY built apart from the constants above: SYSTEM_PROMPT is byte-locked
+ * to the eval harness (20/20 report) and must not drift. The variants are the same
+ * instructions plus an output-language directive (instruction stays English —
+ * Llama 3.2 follows English instructions most reliably; each listed language is an
+ * officially supported output language of the base model, which is also why the app
+ * offers exactly this set). Hindi verified on-device 2026-07-16; ⚠️ the others are
+ * not yet eval-verified — needs per-language on-device passes (and ideally eval sets
+ * in ml/test/) before being treated as shipped.
  * parseSteps is language-agnostic — it keys on the numbered-list markers, and the
- * prompt pins Arabic numerals ("1." not "१.") so the regex contract holds.
+ * prompt pins Arabic numerals ("1." not "१.") so the regex contract holds; the
+ * numeral pin matters for Hindi (Devanagari digits) and Thai (Thai digits).
  * ------------------------------------------------------------------ */
-export const SYSTEM_PROMPT_HI =
-  'You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable ' +
-  'micro-steps. Each step must be completable in under 30 minutes. Be specific, not ' +
-  'vague. Write every step in simple, natural Hindi (Devanagari script). Output a ' +
-  'numbered list only, using Arabic numerals (1. 2. 3.). No intro text. No explanation.';
-
-export const SUBSTEP_SYSTEM_PROMPT_HI =
-  'You are a calm, practical life coach. The user gives you ONE step they find ' +
-  'tricky, plus the overall task it belongs to for context. Break just that single ' +
-  'step into 3 to 4 even smaller actions, each doable in a minute or two. Write every ' +
-  'action in simple, natural Hindi (Devanagari script). Output a numbered list only, ' +
-  'using Arabic numerals (1. 2. 3.). No intro text. No explanation.';
+const OUTPUT_LANGUAGE: Record<string, string> = {
+  es: 'simple, natural Spanish',
+  fr: 'simple, natural French',
+  de: 'simple, natural German',
+  it: 'simple, natural Italian',
+  pt: 'simple, natural Portuguese',
+  hi: 'simple, natural Hindi (Devanagari script)',
+  th: 'simple, natural Thai (Thai script)',
+};
 
 /** The breakdown system prompt for the given app locale. */
 export function systemPromptFor(locale: string): string {
-  return locale === 'hi' ? SYSTEM_PROMPT_HI : SYSTEM_PROMPT;
+  const lang = OUTPUT_LANGUAGE[locale];
+  if (!lang) return SYSTEM_PROMPT;
+  return (
+    'You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable ' +
+    'micro-steps. Each step must be completable in under 30 minutes. Be specific, not ' +
+    `vague. Write every step in ${lang}. Output a ` +
+    'numbered list only, using Arabic numerals (1. 2. 3.). No intro text. No explanation.'
+  );
 }
 
 /** The sub-step system prompt for the given app locale. */
 export function subStepSystemPromptFor(locale: string): string {
-  return locale === 'hi' ? SUBSTEP_SYSTEM_PROMPT_HI : SUBSTEP_SYSTEM_PROMPT;
+  const lang = OUTPUT_LANGUAGE[locale];
+  if (!lang) return SUBSTEP_SYSTEM_PROMPT;
+  return (
+    'You are a calm, practical life coach. The user gives you ONE step they find ' +
+    'tricky, plus the overall task it belongs to for context. Break just that single ' +
+    'step into 3 to 4 even smaller actions, each doable in a minute or two. Write every ' +
+    `action in ${lang}. Output a numbered list only, ` +
+    'using Arabic numerals (1. 2. 3.). No intro text. No explanation.'
+  );
 }
 
 /** Upper bound on sub-steps shown under a parent (calm; avoids re-overwhelming). */

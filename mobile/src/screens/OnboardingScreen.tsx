@@ -18,7 +18,7 @@ import {
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
-import { getLocale, localized } from '../core/i18n/i18n';
+import { getLocale, localized, type Locale } from '../core/i18n/i18n';
 import { color, layout, radii, space, type } from '../theme/tokens';
 
 type Props = { onDone: () => void };
@@ -46,35 +46,168 @@ const STEPS_EN: Step[] = [
   },
 ];
 
-const STEPS_HI: Step[] = [
-  {
-    glyph: '◉',
-    title: 'जब शुरुआत ही सबसे मुश्किल हो',
-    body: 'कोई काम इतना बड़ा लगे कि शुरू ही न हो पाए। कोई दिन हाथ से निकल जाए।\nLifePilot को बताइए क्या भारी लग रहा है — वह उसे छोटे, आसान क़दमों में बाँट देगा। साथ ही आपकी ऊर्जा, पानी और ख़र्च पर भी चुपचाप नज़र रखेगा।',
-    cta: 'शुरू करें',
-  },
-  {
-    glyph: '◎',
-    title: 'जो आपको भारी लगता है, वह सिर्फ़ आपका है',
-    body: 'AI ख़ुद आपके फ़ोन पर रहता है, इसलिए आपका लिखा या ट्रैक किया कुछ भी फ़ोन से बाहर नहीं जाता।\nन कोई अकाउंट, न कोई क्लाउड, न कोई झाँकने वाला — हम भी नहीं। सब कुछ एयरप्लेन मोड में भी चलता है।',
-    cta: 'ठीक है',
-  },
-  {
-    glyph: '◐',
-    title: 'कंधे पर एक हल्की-सी थपकी',
-    body: 'जो नज़र से हटा, वह दिमाग़ से भी हट जाता है — यह कोई कमी नहीं, व्यस्त दिमाग़ों का तरीक़ा है।\nLifePilot अगला क़दम, पानी का घूँट या आपका बेहतरीन फ़ोकस समय धीरे-से याद दिला सकता है। कभी ज़बरदस्ती नहीं — Settings में कभी भी बदल सकते हैं।',
-    cta: 'रिमाइंडर चालू करें',
-  },
-];
+// Same glyphs everywhere; only title/body/cta localize. Any locale without a steps
+// array falls back to English wholesale (steps read as a unit, unlike localized()'s
+// per-key fallback — a mixed-language onboarding step would read worse than English).
+const STEPS_BY_LOCALE: Partial<Record<Locale, Step[]>> = {
+  es: [
+    {
+      glyph: '◉',
+      title: 'Para cuando empezar es lo más difícil',
+      body: 'Una tarea que se siente demasiado grande para empezar. Un día que se te fue de las manos.\nCuéntale a LifePilot qué te abruma y lo dividirá en pasos pequeños y manejables — y además cuida en silencio tu energía, tu agua y tus gastos.',
+      cta: 'Comenzar',
+    },
+    {
+      glyph: '◎',
+      title: 'Lo que te abruma no le importa a nadie más',
+      body: 'La IA vive en tu teléfono, así que nada de lo que escribes o registras sale de él.\nSin cuenta, sin nube, sin nadie mirando por encima de tu hombro — ni siquiera nosotros. Todo funciona en modo avión.',
+      cta: 'Entendido',
+    },
+    {
+      glyph: '◐',
+      title: 'Un toque suave en el hombro',
+      body: 'Lo que no se ve, se olvida — no es un defecto, así funcionan las mentes ocupadas.\nLifePilot puede recordarte con suavidad el siguiente paso, un sorbo de agua o tu mejor momento de concentración. Nunca insistente, y puedes cambiarlo cuando quieras en Ajustes.',
+      cta: 'Activar recordatorios',
+    },
+  ],
+  fr: [
+    {
+      glyph: '◉',
+      title: 'Pour quand commencer est le plus dur',
+      body: 'Une tâche trop grosse pour s’y mettre. Une journée qui vous a échappé.\nDites à LifePilot ce qui vous submerge : il le découpe en petites étapes faisables — et veille aussi, discrètement, sur votre énergie, votre hydratation et vos dépenses.',
+      cta: 'Commencer',
+    },
+    {
+      glyph: '◎',
+      title: 'Ce qui vous submerge ne regarde personne',
+      body: 'L’IA vit sur votre téléphone : rien de ce que vous écrivez ou suivez n’en sort jamais.\nPas de compte, pas de cloud, personne qui lit par-dessus votre épaule — pas même nous. Tout fonctionne en mode avion.',
+      cta: 'Compris',
+    },
+    {
+      glyph: '◐',
+      title: 'Une petite tape sur l’épaule',
+      body: 'Loin des yeux, loin de l’esprit — ce n’est pas un défaut, c’est ainsi que fonctionnent les esprits occupés.\nLifePilot peut vous rappeler en douceur la prochaine étape, une gorgée d’eau ou votre meilleur créneau de concentration. Jamais insistant, et modifiable à tout moment dans les Réglages.',
+      cta: 'Activer les rappels',
+    },
+  ],
+  de: [
+    {
+      glyph: '◉',
+      title: 'Für die Momente, in denen Anfangen am schwersten ist',
+      body: 'Eine Aufgabe, die zu groß wirkt, um anzufangen. Ein Tag, der dir entglitten ist.\nSag LifePilot, was dich überfordert — es zerlegt es in kleine, machbare Schritte und behält nebenbei still deine Energie, dein Wasser und deine Ausgaben im Blick.',
+      cta: 'Los geht’s',
+    },
+    {
+      glyph: '◎',
+      title: 'Was dich überfordert, geht niemanden etwas an',
+      body: 'Die KI selbst lebt auf deinem Handy — nichts, was du tippst oder trackst, verlässt es je.\nKein Konto, keine Cloud, niemand, der mitliest — nicht einmal wir. Alles funktioniert im Flugmodus.',
+      cta: 'Verstanden',
+    },
+    {
+      glyph: '◐',
+      title: 'Ein leises Tippen auf die Schulter',
+      body: 'Aus den Augen, aus dem Sinn — kein Makel, so arbeiten beschäftigte Köpfe.\nLifePilot kann dich sanft an den nächsten Schritt, einen Schluck Wasser oder dein bestes Fokusfenster erinnern. Nie aufdringlich — und jederzeit in den Einstellungen änderbar.',
+      cta: 'Erinnerungen aktivieren',
+    },
+  ],
+  it: [
+    {
+      glyph: '◉',
+      title: 'Per quando iniziare è la parte più difficile',
+      body: 'Un compito che sembra troppo grande per cominciare. Una giornata sfuggita di mano.\nRacconta a LifePilot cosa ti sopraffà: lo dividerà in piccoli passi fattibili — e terrà d’occhio in silenzio anche energia, acqua e spese.',
+      cta: 'Inizia',
+    },
+    {
+      glyph: '◎',
+      title: 'Ciò che ti sopraffà non riguarda nessun altro',
+      body: 'L’IA vive sul tuo telefono, quindi nulla di ciò che scrivi o registri lo lascia mai.\nNessun account, nessun cloud, nessuno che legge alle tue spalle — nemmeno noi. Tutto funziona in modalità aereo.',
+      cta: 'Capito',
+    },
+    {
+      glyph: '◐',
+      title: 'Un tocco leggero sulla spalla',
+      body: 'Lontano dagli occhi, lontano dalla mente — non è un difetto, è così che lavorano le menti impegnate.\nLifePilot può ricordarti con delicatezza il prossimo passo, un sorso d’acqua o la tua migliore finestra di concentrazione. Mai invadente, e puoi cambiarlo quando vuoi nelle Impostazioni.',
+      cta: 'Attiva i promemoria',
+    },
+  ],
+  pt: [
+    {
+      glyph: '◉',
+      title: 'Para quando começar é a parte mais difícil',
+      body: 'Uma tarefa grande demais para começar. Um dia que escapou do controle.\nConte ao LifePilot o que está te sobrecarregando e ele divide em passos pequenos e possíveis — enquanto acompanha em silêncio sua energia, sua água e seus gastos.',
+      cta: 'Começar',
+    },
+    {
+      glyph: '◎',
+      title: 'O que te sobrecarrega não é da conta de ninguém',
+      body: 'A IA vive no seu telefone, então nada do que você escreve ou registra sai dele.\nSem conta, sem nuvem, ninguém espiando por cima do seu ombro — nem mesmo nós. Tudo funciona em modo avião.',
+      cta: 'Entendi',
+    },
+    {
+      glyph: '◐',
+      title: 'Um toque leve no ombro',
+      body: 'O que sai da vista sai da mente — não é um defeito, é como mentes ocupadas funcionam.\nO LifePilot pode lembrar com delicadeza o próximo passo, um gole de água ou sua melhor janela de foco. Nunca insistente — e você muda quando quiser nas Configurações.',
+      cta: 'Ativar lembretes',
+    },
+  ],
+  hi: [
+    {
+      glyph: '◉',
+      title: 'जब शुरुआत ही सबसे मुश्किल हो',
+      body: 'कोई काम इतना बड़ा लगे कि शुरू ही न हो पाए। कोई दिन हाथ से निकल जाए।\nLifePilot को बताइए क्या भारी लग रहा है — वह उसे छोटे, आसान क़दमों में बाँट देगा। साथ ही आपकी ऊर्जा, पानी और ख़र्च पर भी चुपचाप नज़र रखेगा।',
+      cta: 'शुरू करें',
+    },
+    {
+      glyph: '◎',
+      title: 'जो आपको भारी लगता है, वह सिर्फ़ आपका है',
+      body: 'AI ख़ुद आपके फ़ोन पर रहता है, इसलिए आपका लिखा या ट्रैक किया कुछ भी फ़ोन से बाहर नहीं जाता।\nन कोई अकाउंट, न कोई क्लाउड, न कोई झाँकने वाला — हम भी नहीं। सब कुछ एयरप्लेन मोड में भी चलता है।',
+      cta: 'ठीक है',
+    },
+    {
+      glyph: '◐',
+      title: 'कंधे पर एक हल्की-सी थपकी',
+      body: 'जो नज़र से हटा, वह दिमाग़ से भी हट जाता है — यह कोई कमी नहीं, व्यस्त दिमाग़ों का तरीक़ा है।\nLifePilot अगला क़दम, पानी का घूँट या आपका बेहतरीन फ़ोकस समय धीरे-से याद दिला सकता है। कभी ज़बरदस्ती नहीं — Settings में कभी भी बदल सकते हैं।',
+      cta: 'रिमाइंडर चालू करें',
+    },
+  ],
+  th: [
+    {
+      glyph: '◉',
+      title: 'สำหรับวันที่การเริ่มต้นคือส่วนที่ยากที่สุด',
+      body: 'งานที่ใหญ่จนไม่รู้จะเริ่มตรงไหน วันที่หลุดมือไป\nบอก LifePilot ว่าอะไรทำให้คุณหนักใจ แล้วมันจะแบ่งเป็นขั้นตอนเล็ก ๆ ที่ทำได้จริง — พร้อมคอยดูแลพลังงาน น้ำ และค่าใช้จ่ายของคุณอย่างเงียบ ๆ',
+      cta: 'เริ่มต้น',
+    },
+    {
+      glyph: '◎',
+      title: 'สิ่งที่ทำให้คุณหนักใจ ไม่ใช่เรื่องของใครอื่น',
+      body: 'AI อยู่บนโทรศัพท์ของคุณเอง สิ่งที่คุณพิมพ์หรือบันทึกจึงไม่มีวันออกไปไหน\nไม่มีบัญชี ไม่มีคลาวด์ ไม่มีใครแอบดู — แม้แต่เราเอง ทุกอย่างใช้ได้ในโหมดเครื่องบิน',
+      cta: 'เข้าใจแล้ว',
+    },
+    {
+      glyph: '◐',
+      title: 'สะกิดเบา ๆ ที่ไหล่',
+      body: 'พ้นสายตาก็พ้นใจ — ไม่ใช่ข้อบกพร่อง แต่เป็นวิธีทำงานของสมองที่ยุ่งอยู่\nLifePilot ช่วยเตือนขั้นตอนถัดไป น้ำสักอึก หรือช่วงสมาธิที่ดีที่สุดของคุณอย่างนุ่มนวล ไม่เซ้าซี้ และปรับได้ทุกเมื่อในการตั้งค่า',
+      cta: 'เปิดการแจ้งเตือน',
+    },
+  ],
+};
 
 const ONBOARDING_COPY = localized(
   { skip: 'Skip for now', footnote: '◉ Everything runs on-device — always.' },
-  { skip: 'अभी नहीं', footnote: '◉ सब कुछ आपके फ़ोन पर चलता है — हमेशा।' },
+  {
+    es: { skip: 'Ahora no', footnote: '◉ Todo funciona en tu dispositivo — siempre.' },
+    fr: { skip: 'Plus tard', footnote: '◉ Tout fonctionne sur l’appareil — toujours.' },
+    de: { skip: 'Jetzt nicht', footnote: '◉ Alles läuft auf dem Gerät — immer.' },
+    it: { skip: 'Non ora', footnote: '◉ Tutto funziona sul dispositivo — sempre.' },
+    pt: { skip: 'Agora não', footnote: '◉ Tudo roda no aparelho — sempre.' },
+    hi: { skip: 'अभी नहीं', footnote: '◉ सब कुछ आपके फ़ोन पर चलता है — हमेशा।' },
+    th: { skip: 'ไว้ทีหลัง', footnote: '◉ ทุกอย่างทำงานบนเครื่อง — เสมอ' },
+  },
 );
 
 export function OnboardingScreen({ onDone }: Props) {
   const [step, setStep] = useState(0);
-  const STEPS = getLocale() === 'hi' ? STEPS_HI : STEPS_EN;
+  const STEPS = STEPS_BY_LOCALE[getLocale()] ?? STEPS_EN;
 
   const advance = async () => {
     if (step === STEPS.length - 1) {

@@ -11,7 +11,7 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getLocale, localized, setLocale, type Locale } from '../core/i18n/i18n';
+import { getLocale, LANGUAGES, localized, setLocale, type Locale } from '../core/i18n/i18n';
 import { nudgeCenter } from '../core/nudges/NudgeCenter';
 import type { NudgeFeature, NudgeSettings } from '../core/nudges/NudgeCenter';
 import { hydrationStore } from '../features/hydration/hydrationStore';
@@ -47,26 +47,160 @@ const SETTINGS_COPY = localized(
     languageHint: 'AI step breakdowns follow this language too.',
   },
   {
-    title: 'सेटिंग्स',
-    sectionLanguage: 'भाषा / Language',
-    sectionNudges: 'रिमाइंडर',
-    sectionPerFeature: 'हर फ़ीचर के लिए',
-    sectionQuiet: 'शांत घंटे',
-    sectionPrivacy: 'प्राइवेसी',
-    sectionAbout: 'ऐप के बारे में',
-    nudgesEnabled: 'रिमाइंडर चालू',
-    nudgesEnabledSub: 'पानी, ऊर्जा और फ़ोकस के लिए हल्के रिमाइंडर',
-    hydrationSub: 'पानी पीते रहने की याद',
-    energySub: 'फ़ोकस और आराम के समय की सूचना',
-    overwhelmSub: 'अगला क़दम चश्मे पर सुनाना',
-    quietFrom: 'इस दौरान कोई रिमाइंडर नहीं',
-    quietHint: 'शांत घंटों की सेटिंग v1.1 में आ रही है।',
-    weatherLabel: 'लाइव मौसम (आपकी मर्ज़ी से)',
-    weatherSub:
-      'पानी के लक्ष्य को और सटीक बनाता है। सिर्फ़ आपका मोटा-मोटा इलाक़ा भेजा जाता है — कोई निजी जानकारी नहीं।',
-    aboutText:
-      'LifePilot v0.1.0\nसारे AI फ़ीचर ExecuTorch के ज़रिए पूरी तरह आपके फ़ोन पर चलते हैं।\nन अकाउंट, न सर्वर, न कोई डेटा-संग्रह।',
-    languageHint: 'AI के बनाए क़दम भी इसी भाषा में आएँगे।',
+    es: {
+      title: 'Ajustes',
+      sectionLanguage: 'Idioma',
+      sectionNudges: 'Recordatorios',
+      sectionPerFeature: 'Por función',
+      sectionQuiet: 'Horas de silencio',
+      sectionPrivacy: 'Privacidad',
+      sectionAbout: 'Acerca de',
+      nudgesEnabled: 'Recordatorios activados',
+      nudgesEnabledSub: 'Avisos suaves de hidratación, energía y concentración',
+      hydrationSub: 'Recordatorios para beber agua a buen ritmo',
+      energySub: 'Avisos de concentración y descanso',
+      overwhelmSub: 'Leer el siguiente paso en las gafas',
+      quietFrom: 'Sin recordatorios de',
+      quietHint: 'El editor de horas de silencio llega en v1.1.',
+      weatherLabel: 'Clima en vivo (opcional)',
+      weatherSub:
+        'Mejora la precisión de tu meta de hidratación. Solo se envía tu ubicación aproximada — ningún dato personal.',
+      aboutText:
+        'LifePilot v0.1.0\nToda la IA funciona en tu dispositivo vía ExecuTorch.\nSin cuentas. Sin servidores. Sin recopilación de datos.',
+      languageHint: 'Los pasos generados por la IA también siguen este idioma.',
+    },
+    fr: {
+      title: 'Réglages',
+      sectionLanguage: 'Langue',
+      sectionNudges: 'Rappels',
+      sectionPerFeature: 'Par fonctionnalité',
+      sectionQuiet: 'Heures calmes',
+      sectionPrivacy: 'Confidentialité',
+      sectionAbout: 'À propos',
+      nudgesEnabled: 'Rappels activés',
+      nudgesEnabledSub: 'Rappels discrets pour l’hydratation, l’énergie et la concentration',
+      hydrationSub: 'Rappels pour boire régulièrement',
+      energySub: 'Alertes de concentration et de repos',
+      overwhelmSub: 'Lecture de la prochaine étape sur les lunettes',
+      quietFrom: 'Aucun rappel de',
+      quietHint: 'L’éditeur d’heures calmes arrive en v1.1.',
+      weatherLabel: 'Météo en direct (facultatif)',
+      weatherSub:
+        'Améliore la précision de votre objectif d’hydratation. Seule votre position approximative est envoyée — aucune donnée personnelle.',
+      aboutText:
+        'LifePilot v0.1.0\nToute l’IA fonctionne sur votre appareil via ExecuTorch.\nPas de compte. Pas de serveur. Aucune collecte de données.',
+      languageHint: 'Les étapes générées par l’IA suivent aussi cette langue.',
+    },
+    de: {
+      title: 'Einstellungen',
+      sectionLanguage: 'Sprache',
+      sectionNudges: 'Erinnerungen',
+      sectionPerFeature: 'Pro Funktion',
+      sectionQuiet: 'Ruhezeiten',
+      sectionPrivacy: 'Datenschutz',
+      sectionAbout: 'Über die App',
+      nudgesEnabled: 'Erinnerungen aktiv',
+      nudgesEnabledSub: 'Sanfte Erinnerungen an Wasser, Energie und Fokus',
+      hydrationSub: 'Erinnerungen ans Trinken',
+      energySub: 'Hinweise zu Fokus- und Ruhephasen',
+      overwhelmSub: 'Nächsten Schritt über die Brille vorlesen',
+      quietFrom: 'Keine Erinnerungen von',
+      quietHint: 'Der Ruhezeiten-Editor kommt in v1.1.',
+      weatherLabel: 'Live-Wetter (optional)',
+      weatherSub:
+        'Macht dein Trinkziel genauer. Nur dein ungefährer Standort wird abgerufen — keine persönlichen Daten.',
+      aboutText:
+        'LifePilot v0.1.0\nDie gesamte KI läuft über ExecuTorch auf deinem Gerät.\nKeine Konten. Keine Server. Keine Datensammlung.',
+      languageHint: 'Auch die KI-Schritte folgen dieser Sprache.',
+    },
+    it: {
+      title: 'Impostazioni',
+      sectionLanguage: 'Lingua',
+      sectionNudges: 'Promemoria',
+      sectionPerFeature: 'Per funzione',
+      sectionQuiet: 'Ore di silenzio',
+      sectionPrivacy: 'Privacy',
+      sectionAbout: 'Informazioni',
+      nudgesEnabled: 'Promemoria attivi',
+      nudgesEnabledSub: 'Promemoria leggeri per acqua, energia e concentrazione',
+      hydrationSub: 'Promemoria per bere con regolarità',
+      energySub: 'Avvisi su concentrazione e riposo',
+      overwhelmSub: 'Lettura del prossimo passo sugli occhiali',
+      quietFrom: 'Nessun promemoria da',
+      quietHint: 'L’editor delle ore di silenzio arriva nella v1.1.',
+      weatherLabel: 'Meteo in tempo reale (facoltativo)',
+      weatherSub:
+        'Rende più preciso il tuo obiettivo di idratazione. Viene inviata solo la tua posizione approssimativa — nessun dato personale.',
+      aboutText:
+        'LifePilot v0.1.0\nTutta l’IA funziona sul tuo dispositivo via ExecuTorch.\nNessun account. Nessun server. Nessuna raccolta dati.',
+      languageHint: 'Anche i passi generati dall’IA seguono questa lingua.',
+    },
+    pt: {
+      title: 'Configurações',
+      sectionLanguage: 'Idioma',
+      sectionNudges: 'Lembretes',
+      sectionPerFeature: 'Por recurso',
+      sectionQuiet: 'Horas de silêncio',
+      sectionPrivacy: 'Privacidade',
+      sectionAbout: 'Sobre',
+      nudgesEnabled: 'Lembretes ativados',
+      nudgesEnabledSub: 'Lembretes suaves de hidratação, energia e foco',
+      hydrationSub: 'Lembretes para beber água no ritmo certo',
+      energySub: 'Avisos de foco e descanso',
+      overwhelmSub: 'Ler o próximo passo nos óculos',
+      quietFrom: 'Sem lembretes de',
+      quietHint: 'O editor de horas de silêncio chega na v1.1.',
+      weatherLabel: 'Clima ao vivo (opcional)',
+      weatherSub:
+        'Melhora a precisão da sua meta de hidratação. Só a sua localização aproximada é enviada — nenhum dado pessoal.',
+      aboutText:
+        'LifePilot v0.1.0\nToda a IA roda no seu aparelho via ExecuTorch.\nSem contas. Sem servidores. Sem coleta de dados.',
+      languageHint: 'Os passos gerados pela IA também seguem este idioma.',
+    },
+    hi: {
+      title: 'सेटिंग्स',
+      sectionLanguage: 'भाषा',
+      sectionNudges: 'रिमाइंडर',
+      sectionPerFeature: 'हर फ़ीचर के लिए',
+      sectionQuiet: 'शांत घंटे',
+      sectionPrivacy: 'प्राइवेसी',
+      sectionAbout: 'ऐप के बारे में',
+      nudgesEnabled: 'रिमाइंडर चालू',
+      nudgesEnabledSub: 'पानी, ऊर्जा और फ़ोकस के लिए हल्के रिमाइंडर',
+      hydrationSub: 'पानी पीते रहने की याद',
+      energySub: 'फ़ोकस और आराम के समय की सूचना',
+      overwhelmSub: 'अगला क़दम चश्मे पर सुनाना',
+      quietFrom: 'इस दौरान कोई रिमाइंडर नहीं',
+      quietHint: 'शांत घंटों की सेटिंग v1.1 में आ रही है।',
+      weatherLabel: 'लाइव मौसम (आपकी मर्ज़ी से)',
+      weatherSub:
+        'पानी के लक्ष्य को और सटीक बनाता है। सिर्फ़ आपका मोटा-मोटा इलाक़ा भेजा जाता है — कोई निजी जानकारी नहीं।',
+      aboutText:
+        'LifePilot v0.1.0\nसारे AI फ़ीचर ExecuTorch के ज़रिए पूरी तरह आपके फ़ोन पर चलते हैं।\nन अकाउंट, न सर्वर, न कोई डेटा-संग्रह।',
+      languageHint: 'AI के बनाए क़दम भी इसी भाषा में आएँगे।',
+    },
+    th: {
+      title: 'การตั้งค่า',
+      sectionLanguage: 'ภาษา',
+      sectionNudges: 'การแจ้งเตือน',
+      sectionPerFeature: 'ตามฟีเจอร์',
+      sectionQuiet: 'ช่วงเวลาห้ามรบกวน',
+      sectionPrivacy: 'ความเป็นส่วนตัว',
+      sectionAbout: 'เกี่ยวกับแอป',
+      nudgesEnabled: 'เปิดการแจ้งเตือน',
+      nudgesEnabledSub: 'เตือนเบา ๆ เรื่องน้ำ พลังงาน และสมาธิ',
+      hydrationSub: 'เตือนให้ดื่มน้ำสม่ำเสมอ',
+      energySub: 'แจ้งช่วงสมาธิดีและช่วงพักผ่อน',
+      overwhelmSub: 'อ่านขั้นตอนถัดไปผ่านแว่นตา',
+      quietFrom: 'งดแจ้งเตือนตั้งแต่',
+      quietHint: 'ตัวแก้ไขช่วงห้ามรบกวนจะมาใน v1.1',
+      weatherLabel: 'สภาพอากาศสด (เลือกได้)',
+      weatherSub:
+        'ช่วยให้เป้าหมายการดื่มน้ำแม่นยำขึ้น ส่งเฉพาะตำแหน่งคร่าว ๆ เท่านั้น — ไม่มีข้อมูลส่วนตัว',
+      aboutText:
+        'LifePilot v0.1.0\nAI ทั้งหมดทำงานบนเครื่องของคุณผ่าน ExecuTorch\nไม่มีบัญชี ไม่มีเซิร์ฟเวอร์ ไม่เก็บข้อมูล',
+      languageHint: 'ขั้นตอนที่ AI สร้างจะใช้ภาษานี้ด้วย',
+    },
   },
 );
 
@@ -120,10 +254,7 @@ export function SettingsScreen({ onBack, onLocaleChange }: Props) {
         <View style={styles.content}>
           {/* Language */}
           <Section title={SETTINGS_COPY.sectionLanguage}>
-            <View style={styles.langRow}>
-              <LangChoice label="English" active={getLocale() === 'en'} onPress={() => chooseLocale('en')} />
-              <LangChoice label="हिन्दी" active={getLocale() === 'hi'} onPress={() => chooseLocale('hi')} />
-            </View>
+            <LanguageDropdown onChange={chooseLocale} />
             <Text style={styles.infoHint} maxFontSizeMultiplier={1.4}>
               {SETTINGS_COPY.languageHint}
             </Text>
@@ -208,41 +339,103 @@ export function SettingsScreen({ onBack, onLocaleChange }: Props) {
   );
 }
 
-function LangChoice({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+/**
+ * Dropdown over all supported app languages (LANGUAGES = what Llama 3.2 can generate
+ * in). Collapsed it shows the current language; tapping expands the full list in
+ * place inside the section card — no Modal or picker dependency, per the pinned-tree
+ * rule. Options show the native name first (what a speaker scans for) with the
+ * English name as a secondary hint.
+ */
+function LanguageDropdown({ onChange }: { onChange: (l: Locale) => void }) {
+  const [open, setOpen] = useState(false);
+  const active = getLocale();
+  const activeMeta = LANGUAGES.find((l) => l.code === active) ?? LANGUAGES[0];
+
+  const pick = (l: Locale) => {
+    setOpen(false);
+    onChange(l);
+  };
+
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
-      style={({ pressed }) => [
-        langStyles.chip,
-        active && langStyles.chipActive,
-        pressed && { opacity: 0.7 },
-      ]}
-    >
-      <Text style={[langStyles.chipLabel, active && langStyles.chipLabelActive]} maxFontSizeMultiplier={1.4}>
-        {label}
-      </Text>
-    </Pressable>
+    <View>
+      <Pressable
+        onPress={() => setOpen((v) => !v)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`Language: ${activeMeta.englishName}`}
+        style={({ pressed }) => [langStyles.trigger, pressed && { opacity: 0.7 }]}
+      >
+        <Text style={langStyles.triggerLabel} maxFontSizeMultiplier={1.4}>
+          {activeMeta.nativeName}
+        </Text>
+        <Text style={langStyles.chevron}>{open ? '▴' : '▾'}</Text>
+      </Pressable>
+      {open &&
+        LANGUAGES.map((l) => {
+          const selected = l.code === active;
+          return (
+            <Pressable
+              key={l.code}
+              onPress={() => pick(l.code)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={l.englishName}
+              style={({ pressed }) => [
+                langStyles.option,
+                selected && langStyles.optionActive,
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <View style={langStyles.optionText}>
+                <Text
+                  style={[langStyles.optionNative, selected && langStyles.optionNativeActive]}
+                  maxFontSizeMultiplier={1.4}
+                >
+                  {l.nativeName}
+                </Text>
+                {l.englishName !== l.nativeName && (
+                  <Text style={langStyles.optionEnglish} maxFontSizeMultiplier={1.4}>
+                    {l.englishName}
+                  </Text>
+                )}
+              </View>
+              {selected && <Text style={langStyles.check}>✓</Text>}
+            </Pressable>
+          );
+        })}
+    </View>
   );
 }
 
 const langStyles = StyleSheet.create({
-  chip: {
-    flex: 1,
+  trigger: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: space[3],
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: color.border,
-    backgroundColor: color.surface,
+    justifyContent: 'space-between',
+    paddingHorizontal: space[4],
+    paddingVertical: space[4],
     minHeight: layout.minTouchTarget,
-    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
   },
-  chipActive: { borderColor: color.accent, backgroundColor: color.surfaceAlt },
-  chipLabel: { ...type.body, color: color.textSecondary },
-  chipLabelActive: { color: color.textPrimary, fontWeight: '600' as const },
+  triggerLabel: { ...type.body, color: color.textPrimary, fontWeight: '600' as const },
+  chevron: { ...type.body, color: color.accent },
+  option: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: space[4],
+    paddingVertical: space[3],
+    minHeight: layout.minTouchTarget,
+    borderBottomWidth: 1,
+    borderBottomColor: color.border,
+  },
+  optionActive: { backgroundColor: color.surfaceAlt },
+  optionText: { flex: 1 },
+  optionNative: { ...type.body, color: color.textSecondary },
+  optionNativeActive: { color: color.textPrimary, fontWeight: '600' as const },
+  optionEnglish: { ...type.caption, color: color.textTertiary, marginTop: 1 },
+  check: { ...type.body, color: color.accent, fontWeight: '600' as const },
 });
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -344,7 +537,6 @@ const styles = StyleSheet.create({
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
   },
-  langRow: { flexDirection: 'row', gap: space[3], padding: space[4] },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[4] },
   infoLabel: { ...type.body, color: color.textPrimary },
   infoValue: { ...type.body, color: color.textSecondary },
