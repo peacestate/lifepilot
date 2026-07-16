@@ -11,14 +11,66 @@ import React, { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getLocale, localized, setLocale, type Locale } from '../core/i18n/i18n';
 import { nudgeCenter } from '../core/nudges/NudgeCenter';
 import type { NudgeFeature, NudgeSettings } from '../core/nudges/NudgeCenter';
 import { hydrationStore } from '../features/hydration/hydrationStore';
 import { color, layout, radii, space, type } from '../theme/tokens';
 
-type Props = { onBack: () => void };
+type Props = {
+  onBack: () => void;
+  /** Notifies App.tsx so it can re-key the screen tree into the new language. */
+  onLocaleChange?: (l: Locale) => void;
+};
 
-export function SettingsScreen({ onBack }: Props) {
+const SETTINGS_COPY = localized(
+  {
+    title: 'Settings',
+    sectionLanguage: 'Language',
+    sectionNudges: 'Nudges',
+    sectionPerFeature: 'Per feature',
+    sectionQuiet: 'Quiet hours',
+    sectionPrivacy: 'Privacy',
+    sectionAbout: 'About',
+    nudgesEnabled: 'Nudges enabled',
+    nudgesEnabledSub: 'Quiet reminders for hydration, energy, and focus',
+    hydrationSub: 'Water-pace reminders',
+    energySub: 'Focus and wind-down window alerts',
+    overwhelmSub: 'Next-step read-aloud to glasses',
+    quietFrom: 'No nudges from',
+    quietHint: 'Configurable quiet-hour editor coming in v1.1.',
+    weatherLabel: 'Live weather (opt-in)',
+    weatherSub:
+      'Improves hydration target accuracy. Only your coarse location is fetched — no personal data sent.',
+    aboutText:
+      'LifePilot v0.1.0\nAll AI features run fully on-device via ExecuTorch.\nNo accounts. No servers. No data collection.',
+    languageHint: 'AI step breakdowns follow this language too.',
+  },
+  {
+    title: 'सेटिंग्स',
+    sectionLanguage: 'भाषा / Language',
+    sectionNudges: 'रिमाइंडर',
+    sectionPerFeature: 'हर फ़ीचर के लिए',
+    sectionQuiet: 'शांत घंटे',
+    sectionPrivacy: 'प्राइवेसी',
+    sectionAbout: 'ऐप के बारे में',
+    nudgesEnabled: 'रिमाइंडर चालू',
+    nudgesEnabledSub: 'पानी, ऊर्जा और फ़ोकस के लिए हल्के रिमाइंडर',
+    hydrationSub: 'पानी पीते रहने की याद',
+    energySub: 'फ़ोकस और आराम के समय की सूचना',
+    overwhelmSub: 'अगला क़दम चश्मे पर सुनाना',
+    quietFrom: 'इस दौरान कोई रिमाइंडर नहीं',
+    quietHint: 'शांत घंटों की सेटिंग v1.1 में आ रही है।',
+    weatherLabel: 'लाइव मौसम (आपकी मर्ज़ी से)',
+    weatherSub:
+      'पानी के लक्ष्य को और सटीक बनाता है। सिर्फ़ आपका मोटा-मोटा इलाक़ा भेजा जाता है — कोई निजी जानकारी नहीं।',
+    aboutText:
+      'LifePilot v0.1.0\nसारे AI फ़ीचर ExecuTorch के ज़रिए पूरी तरह आपके फ़ोन पर चलते हैं।\nन अकाउंट, न सर्वर, न कोई डेटा-संग्रह।',
+    languageHint: 'AI के बनाए क़दम भी इसी भाषा में आएँगे।',
+  },
+);
+
+export function SettingsScreen({ onBack, onLocaleChange }: Props) {
   const insets = useSafeAreaInsets();
   const [nudge, setNudge] = useState<NudgeSettings>(() => nudgeCenter.getSettings());
   const [weatherLive, setWeatherLive] = useState(
@@ -39,6 +91,12 @@ export function SettingsScreen({ onBack }: Props) {
     setWeatherLive(val);
   };
 
+  const chooseLocale = (l: Locale) => {
+    if (l === getLocale()) return;
+    setLocale(l);
+    onLocaleChange?.(l);
+  };
+
   return (
     <View style={styles.root}>
       {/* Header: "‹ Settings" as one vertically-centered row (matches FeatureShell's
@@ -53,75 +111,84 @@ export function SettingsScreen({ onBack }: Props) {
         >
           <Text style={styles.backChevron}>‹</Text>
           <Text style={styles.headerTitle} accessibilityRole="header" maxFontSizeMultiplier={1.4}>
-            Settings
+            {SETTINGS_COPY.title}
           </Text>
         </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Language */}
+          <Section title={SETTINGS_COPY.sectionLanguage}>
+            <View style={styles.langRow}>
+              <LangChoice label="English" active={getLocale() === 'en'} onPress={() => chooseLocale('en')} />
+              <LangChoice label="हिन्दी" active={getLocale() === 'hi'} onPress={() => chooseLocale('hi')} />
+            </View>
+            <Text style={styles.infoHint} maxFontSizeMultiplier={1.4}>
+              {SETTINGS_COPY.languageHint}
+            </Text>
+          </Section>
+
           {/* Nudges section */}
-          <Section title="Nudges">
+          <Section title={SETTINGS_COPY.sectionNudges}>
             <Row
-              label="Nudges enabled"
-              sub="Quiet reminders for hydration, energy, and focus"
+              label={SETTINGS_COPY.nudgesEnabled}
+              sub={SETTINGS_COPY.nudgesEnabledSub}
               value={nudge.enabled}
               onToggle={(v) => patchNudge({ enabled: v })}
             />
           </Section>
 
-          <Section title="Per feature">
+          <Section title={SETTINGS_COPY.sectionPerFeature}>
             <Row
               label="Hydration"
-              sub="Water-pace reminders"
+              sub={SETTINGS_COPY.hydrationSub}
               value={nudge.perFeature.hydration}
               onToggle={() => toggleFeature('hydration')}
               disabled={!nudge.enabled}
             />
             <Row
               label="Energy"
-              sub="Focus and wind-down window alerts"
+              sub={SETTINGS_COPY.energySub}
               value={nudge.perFeature.energy}
               onToggle={() => toggleFeature('energy')}
               disabled={!nudge.enabled}
             />
             <Row
               label="Overwhelm"
-              sub="Next-step read-aloud to glasses"
+              sub={SETTINGS_COPY.overwhelmSub}
               value={nudge.perFeature.overwhelm}
               onToggle={() => toggleFeature('overwhelm')}
               disabled={!nudge.enabled}
             />
           </Section>
 
-          <Section title="Quiet hours">
+          <Section title={SETTINGS_COPY.sectionQuiet}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel} maxFontSizeMultiplier={1.4}>No nudges from</Text>
+              <Text style={styles.infoLabel} maxFontSizeMultiplier={1.4}>{SETTINGS_COPY.quietFrom}</Text>
               <Text style={styles.infoValue} maxFontSizeMultiplier={1.4}>
                 {nudge.quietFromHour}:00 – {nudge.quietToHour}:00
               </Text>
             </View>
             <Text style={styles.infoHint} maxFontSizeMultiplier={1.4}>
-              Configurable quiet-hour editor coming in v1.1.
+              {SETTINGS_COPY.quietHint}
             </Text>
           </Section>
 
           {/* Privacy section */}
-          <Section title="Privacy">
+          <Section title={SETTINGS_COPY.sectionPrivacy}>
             <Row
-              label="Live weather (opt-in)"
-              sub="Improves hydration target accuracy. Only your coarse location is fetched — no personal data sent."
+              label={SETTINGS_COPY.weatherLabel}
+              sub={SETTINGS_COPY.weatherSub}
               value={weatherLive}
               onToggle={toggleWeather}
             />
           </Section>
 
           {/* About */}
-          <Section title="About">
+          <Section title={SETTINGS_COPY.sectionAbout}>
             <Text style={styles.aboutText} maxFontSizeMultiplier={1.4}>
-              LifePilot v0.1.0{'\n'}
-              All AI features run fully on-device via ExecuTorch.{'\n'}
-              No accounts. No servers. No data collection.
+              {SETTINGS_COPY.aboutText}
             </Text>
           </Section>
 
@@ -140,6 +207,43 @@ export function SettingsScreen({ onBack }: Props) {
     </View>
   );
 }
+
+function LangChoice({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+      accessibilityLabel={label}
+      style={({ pressed }) => [
+        langStyles.chip,
+        active && langStyles.chipActive,
+        pressed && { opacity: 0.7 },
+      ]}
+    >
+      <Text style={[langStyles.chipLabel, active && langStyles.chipLabelActive]} maxFontSizeMultiplier={1.4}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+const langStyles = StyleSheet.create({
+  chip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: space[3],
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: color.border,
+    backgroundColor: color.surface,
+    minHeight: layout.minTouchTarget,
+    justifyContent: 'center',
+  },
+  chipActive: { borderColor: color.accent, backgroundColor: color.surfaceAlt },
+  chipLabel: { ...type.body, color: color.textSecondary },
+  chipLabelActive: { color: color.textPrimary, fontWeight: '600' as const },
+});
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -240,6 +344,7 @@ const styles = StyleSheet.create({
     maxWidth: layout.maxContentWidth,
     alignSelf: 'center',
   },
+  langRow: { flexDirection: 'row', gap: space[3], padding: space[4] },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: space[4], paddingVertical: space[4] },
   infoLabel: { ...type.body, color: color.textPrimary },
   infoValue: { ...type.body, color: color.textSecondary },

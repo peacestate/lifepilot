@@ -43,6 +43,41 @@ export const SUBSTEP_SYSTEM_PROMPT =
   'step into 3 to 4 even smaller actions, each doable in a minute or two. Output a ' +
   'numbered list only. No intro text. No explanation.';
 
+/* ------------------------------------------------------------------ *
+ * Hindi prompt variants — used only when the app locale is 'hi'.
+ *
+ * DELIBERATELY separate constants: SYSTEM_PROMPT above is byte-locked to the eval
+ * harness (20/20 report) and must not drift. These are the same instructions plus
+ * an output-language directive (instruction stays English — Llama 3.2 follows
+ * English instructions most reliably; Hindi is an officially supported output
+ * language of the base model). ⚠️ NOT yet eval-verified: needs an on-device pass
+ * (and ideally a Hindi eval set in ml/test/) before being treated as shipped.
+ * parseSteps is language-agnostic — it keys on the numbered-list markers, and the
+ * prompt pins Arabic numerals ("1." not "१.") so the regex contract holds.
+ * ------------------------------------------------------------------ */
+export const SYSTEM_PROMPT_HI =
+  'You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable ' +
+  'micro-steps. Each step must be completable in under 30 minutes. Be specific, not ' +
+  'vague. Write every step in simple, natural Hindi (Devanagari script). Output a ' +
+  'numbered list only, using Arabic numerals (1. 2. 3.). No intro text. No explanation.';
+
+export const SUBSTEP_SYSTEM_PROMPT_HI =
+  'You are a calm, practical life coach. The user gives you ONE step they find ' +
+  'tricky, plus the overall task it belongs to for context. Break just that single ' +
+  'step into 3 to 4 even smaller actions, each doable in a minute or two. Write every ' +
+  'action in simple, natural Hindi (Devanagari script). Output a numbered list only, ' +
+  'using Arabic numerals (1. 2. 3.). No intro text. No explanation.';
+
+/** The breakdown system prompt for the given app locale. */
+export function systemPromptFor(locale: string): string {
+  return locale === 'hi' ? SYSTEM_PROMPT_HI : SYSTEM_PROMPT;
+}
+
+/** The sub-step system prompt for the given app locale. */
+export function subStepSystemPromptFor(locale: string): string {
+  return locale === 'hi' ? SUBSTEP_SYSTEM_PROMPT_HI : SUBSTEP_SYSTEM_PROMPT;
+}
+
 /** Upper bound on sub-steps shown under a parent (calm; avoids re-overwhelming). */
 export const SUB_MAX_STEPS = 6;
 

@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { loadLocale, localized, type Locale } from './src/core/i18n/i18n';
 import { LiteParseWebView } from './src/core/liteparse/LiteParseWebView';
 import { LlamaProvider } from './src/core/llm/LlamaProvider';
 import {
@@ -48,6 +49,17 @@ const FEATURE_TITLES: Partial<Record<FeatureKey, string>> = {
   hydration: 'Hydration',
   expense: 'Expense Scanner',
 };
+
+const APP_COPY = localized(
+  {
+    overwhelmSetupIntro:
+      'The Overwhelm Manager thinks with a full language model that lives on your phone. It needs a one-time download — everything after that works offline, even in airplane mode.',
+  },
+  {
+    overwhelmSetupIntro:
+      'Overwhelm Manager आपके फ़ोन पर रहने वाले एक पूरे भाषा मॉडल से सोचता है। इसे एक बार डाउनलोड करना होगा — उसके बाद सब कुछ ऑफ़लाइन चलता है, एयरप्लेन मोड में भी।',
+  },
+);
 
 /**
  * Wraps a feature screen with a back button in a reserved header row above it.
@@ -122,6 +134,9 @@ export default function App() {
   // fetched lazily the first time the Overwhelm Manager is opened, so someone who
   // only wants the Hydration Tracker never downloads the Llama.
   const [llamaEnabled, setLlamaEnabled] = useState(false);
+  // Current UI language. Changing it re-keys the screen tree (below LlamaProvider,
+  // so the loaded model survives the switch) and every screen re-reads its COPY.
+  const [locale, setAppLocale] = useState<Locale>('en');
 
   // Wire nudge outputs + start scheduler once on mount.
   useEffect(() => {
@@ -141,7 +156,9 @@ export default function App() {
       getFlag('onboardingDone'),
       areModelsReady(CORE_FEATURES),
       areModelsReady(OVERWHELM_FEATURES),
-    ]).then(([done, coreReady, overwhelmReady]) => {
+      loadLocale(), // must resolve before first render of localized copy
+    ]).then(([done, coreReady, overwhelmReady, savedLocale]) => {
+      setAppLocale(savedLocale);
       setLlamaEnabled(overwhelmReady);
       if (!done) return setScreen('onboarding');
       setScreen(coreReady ? 'home' : 'setup');
@@ -208,7 +225,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <LlamaProvider enabled={llamaEnabled}>
-        <View style={styles.root}>
+        {/* key={locale}: a language switch re-mounts every screen so localized COPY
+            getters re-read in the new language — but LlamaProvider sits ABOVE the key,
+            so the loaded 1.2 GB model instance survives the switch untouched. */}
+        <View style={styles.root} key={locale}>
           <StatusBar style="dark" />
           <NudgeChecks />
           <LiteParseWebView />
@@ -222,7 +242,7 @@ export default function App() {
                 // flipping it on after onDone gives useLLM its normal clean first load.
                 <ModelSetupScreen
                   features={OVERWHELM_FEATURES}
-                  intro="The Overwhelm Manager thinks with a full language model that lives on your phone. It needs a one-time download — everything after that works offline, even in airplane mode."
+                  intro={APP_COPY.overwhelmSetupIntro}
                   onDone={() => setLlamaEnabled(true)}
                 />
               )}
@@ -234,7 +254,7 @@ export default function App() {
               {screen === 'expense' && <ExpenseScreen />}
             </FeatureShell>
           )}
-          {screen === 'settings' && <SettingsScreen onBack={goHome} />}
+          {screen === 'settings' && <SettingsScreen onBack={goHome} onLocaleChange={setAppLocale} />}
           {screen === 'overwhelmHistory' && <PastTasksScreen onBack={() => setScreen('overwhelm')} />}
         </View>
       </LlamaProvider>

@@ -18,11 +18,14 @@ import {
 
 import { PrimaryButton } from '../components/PrimaryButton';
 import { SecondaryButton } from '../components/SecondaryButton';
+import { getLocale, localized } from '../core/i18n/i18n';
 import { color, layout, radii, space, type } from '../theme/tokens';
 
 type Props = { onDone: () => void };
 
-const STEPS = [
+type Step = { glyph: string; title: string; body: string; cta: string };
+
+const STEPS_EN: Step[] = [
   {
     glyph: '◉',
     title: 'For when starting is the hardest part',
@@ -41,10 +44,37 @@ const STEPS = [
     body: 'Out of sight slips out of mind — that’s not a flaw, it’s how busy brains work.\nLifePilot can gently resurface the next step, a sip of water, or your best focus window. Never pushy, and you can change it any time in Settings.',
     cta: 'Turn on nudges',
   },
-] as const;
+];
+
+const STEPS_HI: Step[] = [
+  {
+    glyph: '◉',
+    title: 'जब शुरुआत ही सबसे मुश्किल हो',
+    body: 'कोई काम इतना बड़ा लगे कि शुरू ही न हो पाए। कोई दिन हाथ से निकल जाए।\nLifePilot को बताइए क्या भारी लग रहा है — वह उसे छोटे, आसान क़दमों में बाँट देगा। साथ ही आपकी ऊर्जा, पानी और ख़र्च पर भी चुपचाप नज़र रखेगा।',
+    cta: 'शुरू करें',
+  },
+  {
+    glyph: '◎',
+    title: 'जो आपको भारी लगता है, वह सिर्फ़ आपका है',
+    body: 'AI ख़ुद आपके फ़ोन पर रहता है, इसलिए आपका लिखा या ट्रैक किया कुछ भी फ़ोन से बाहर नहीं जाता।\nन कोई अकाउंट, न कोई क्लाउड, न कोई झाँकने वाला — हम भी नहीं। सब कुछ एयरप्लेन मोड में भी चलता है।',
+    cta: 'ठीक है',
+  },
+  {
+    glyph: '◐',
+    title: 'कंधे पर एक हल्की-सी थपकी',
+    body: 'जो नज़र से हटा, वह दिमाग़ से भी हट जाता है — यह कोई कमी नहीं, व्यस्त दिमाग़ों का तरीक़ा है।\nLifePilot अगला क़दम, पानी का घूँट या आपका बेहतरीन फ़ोकस समय धीरे-से याद दिला सकता है। कभी ज़बरदस्ती नहीं — Settings में कभी भी बदल सकते हैं।',
+    cta: 'रिमाइंडर चालू करें',
+  },
+];
+
+const ONBOARDING_COPY = localized(
+  { skip: 'Skip for now', footnote: '◉ Everything runs on-device — always.' },
+  { skip: 'अभी नहीं', footnote: '◉ सब कुछ आपके फ़ोन पर चलता है — हमेशा।' },
+);
 
 export function OnboardingScreen({ onDone }: Props) {
   const [step, setStep] = useState(0);
+  const STEPS = getLocale() === 'hi' ? STEPS_HI : STEPS_EN;
 
   const advance = async () => {
     if (step === STEPS.length - 1) {
@@ -85,14 +115,14 @@ export function OnboardingScreen({ onDone }: Props) {
           <PrimaryButton label={cta} onPress={advance} />
           {isLast && (
             <View style={styles.skipRow}>
-              <SecondaryButton label="Skip for now" onPress={skip} />
+              <SecondaryButton label={ONBOARDING_COPY.skip} onPress={skip} />
             </View>
           )}
         </View>
 
         {/* privacy reassurance */}
         <Text style={styles.footnote} maxFontSizeMultiplier={1.4}>
-          ◉ Everything runs on-device — always.
+          {ONBOARDING_COPY.footnote}
         </Text>
       </View>
     </SafeAreaView>

@@ -44,6 +44,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getLocale } from '../../core/i18n/i18n';
 import { useSharedLlm } from '../../core/llm/LlamaProvider';
 import {
   buildResult,
@@ -55,7 +56,8 @@ import {
   toSubSteps,
   subStepUser,
   SUB_MAX_STEPS,
-  SUBSTEP_SYSTEM_PROMPT,
+  systemPromptFor,
+  subStepSystemPromptFor,
 } from './OverwhelmService';
 import { overwhelmDraft } from './overwhelmDraft';
 import { overwhelmMemory } from './overwhelmMemory';
@@ -81,9 +83,9 @@ const toMessages = (userInput: string, systemPrompt: string): ChatMessage[] => [
   { role: 'user', content: userInput },
 ];
 
-/** Messages for breaking ONE step into smaller sub-steps. */
+/** Messages for breaking ONE step into smaller sub-steps. Locale-aware (Hindi output). */
 const toSubMessages = (stepText: string, goal: string): ChatMessage[] => [
-  { role: 'system', content: SUBSTEP_SYSTEM_PROMPT },
+  { role: 'system', content: subStepSystemPromptFor(getLocale()) },
   { role: 'user', content: subStepUser(stepText, goal) },
 ];
 
@@ -302,9 +304,12 @@ export function useOverwhelmManager(): UseOverwhelmManager {
       void overwhelmDraft.save(trimmed);
       const respLen = () => responseRef.current.length;
       try {
-        // Step 1 + 2: retrieve memory → build contextual prompt
+        // Step 1 + 2: retrieve memory → build contextual prompt. In Hindi the
+        // locale-specific prompt takes over (buildContextualPrompt returns the
+        // eval-locked English base prompt regardless of `past` — see its header).
         const past = await overwhelmMemory.retrieve(trimmed);
-        const systemPrompt = buildContextualPrompt(past);
+        const systemPrompt =
+          getLocale() === 'hi' ? systemPromptFor('hi') : buildContextualPrompt(past);
 
         // Step 3: generate — the ONE and only model call per submission (watchdogged so a
         // never-resolving native promise can't hang the screen forever). We deliberately do

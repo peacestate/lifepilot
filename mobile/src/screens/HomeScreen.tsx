@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { localized } from '../core/i18n/i18n';
 import { computeLifeInsight, type LifeInsight } from '../core/lifeEngine';
 import { insightSignature, lifeInsightDismissal } from '../core/lifeInsightDismissal';
 import { color, elevation, layout, radii, space, type } from '../theme/tokens';
@@ -30,31 +31,30 @@ type Card = {
   sub: string;
 };
 
-const CARDS: Card[] = [
+// Feature TITLES stay in English in every locale — they're product names, and the
+// same names appear in Settings toggles and the back button. Descriptions localize.
+const HOME_COPY = localized(
   {
-    key: 'overwhelm',
-    glyph: '◎',
-    title: 'Overwhelm Manager',
-    sub: 'Break any task into calm steps — gets smarter with use',
+    tagline: 'All on-device · nothing leaves your phone',
+    overwhelmSub: 'Break any task into calm steps — gets smarter with use',
+    energySub: 'See your focus & wind-down windows for today',
+    hydrationSub: 'Stay on pace with a personalized daily target',
+    expenseSub: 'Scan receipts or upload PDFs — all on-device',
   },
   {
-    key: 'energy',
-    glyph: '◐',
-    title: 'Energy Planner',
-    sub: 'See your focus & wind-down windows for today',
+    tagline: 'सब कुछ आपके फ़ोन पर · कुछ भी बाहर नहीं जाता',
+    overwhelmSub: 'किसी भी काम को शांत क़दमों में बाँटें — इस्तेमाल से और समझदार',
+    energySub: 'आज के फ़ोकस और आराम के समय देखें',
+    hydrationSub: 'अपने हिसाब के रोज़ाना लक्ष्य के साथ पानी पर बने रहें',
+    expenseSub: 'रसीदें स्कैन करें या PDF डालें — सब फ़ोन पर ही',
   },
-  {
-    key: 'hydration',
-    glyph: '◉',
-    title: 'Hydration',
-    sub: 'Stay on pace with a personalized daily target',
-  },
-  {
-    key: 'expense',
-    glyph: '◈',
-    title: 'Expense Scanner',
-    sub: 'Scan receipts or upload PDFs — all on-device',
-  },
+);
+
+const cards = (): Card[] => [
+  { key: 'overwhelm', glyph: '◎', title: 'Overwhelm Manager', sub: HOME_COPY.overwhelmSub },
+  { key: 'energy', glyph: '◐', title: 'Energy Planner', sub: HOME_COPY.energySub },
+  { key: 'hydration', glyph: '◉', title: 'Hydration', sub: HOME_COPY.hydrationSub },
+  { key: 'expense', glyph: '◈', title: 'Expense Scanner', sub: HOME_COPY.expenseSub },
 ];
 
 export function HomeScreen({ onNavigate }: Props) {
@@ -94,7 +94,7 @@ export function HomeScreen({ onNavigate }: Props) {
             <View>
               <Text style={styles.wordmark} maxFontSizeMultiplier={1.4}>LifePilot</Text>
               <Text style={styles.tagline} maxFontSizeMultiplier={1.4}>
-                All on-device · nothing leaves your phone
+                {HOME_COPY.tagline}
               </Text>
             </View>
             <Pressable
@@ -112,7 +112,7 @@ export function HomeScreen({ onNavigate }: Props) {
 
           {/* feature cards */}
           <View style={styles.cards}>
-            {CARDS.map((card) => (
+            {cards().map((card) => (
               <FeatureCard key={card.key} card={card} onPress={() => onNavigate(card.key)} />
             ))}
           </View>
