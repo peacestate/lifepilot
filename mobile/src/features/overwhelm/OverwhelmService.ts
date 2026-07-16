@@ -75,7 +75,8 @@ export function systemPromptFor(locale: string): string {
   return (
     'You are a calm, practical life coach. Break tasks into 5 to 8 clear, actionable ' +
     'micro-steps. Each step must be completable in under 30 minutes. Be specific, not ' +
-    `vague. Write every step in ${lang}. Output a ` +
+    `vague. Write every step in ${lang}, and ONLY in ${lang} — never add an English ` +
+    'translation in brackets. Output a ' +
     'numbered list only, using Arabic numerals (1. 2. 3.). No intro text. No explanation.'
   );
 }
@@ -88,7 +89,8 @@ export function subStepSystemPromptFor(locale: string): string {
     'You are a calm, practical life coach. The user gives you ONE step they find ' +
     'tricky, plus the overall task it belongs to for context. Break just that single ' +
     'step into 3 to 4 even smaller actions, each doable in a minute or two. Write every ' +
-    `action in ${lang}. Output a numbered list only, ` +
+    `action in ${lang}, and ONLY in ${lang} — never add an English translation in ` +
+    'brackets. Output a numbered list only, ' +
     'using Arabic numerals (1. 2. 3.). No intro text. No explanation.'
   );
 }
