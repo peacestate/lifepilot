@@ -51,12 +51,15 @@ export const SUBSTEP_SYSTEM_PROMPT =
  * instructions plus an output-language directive (instruction stays English —
  * Llama 3.2 follows English instructions most reliably; each listed language is an
  * officially supported output language of the base model, which is also why the app
- * offers exactly this set). Hindi verified on-device 2026-07-16; ⚠️ the others are
- * not yet eval-verified — needs per-language on-device passes (and ideally eval sets
- * in ml/test/) before being treated as shipped.
+ * offers this set). Thai is officially supported by Llama 3.2 but was dropped: the 1B
+ * QAT-LoRA build obeys a Thai directive only sometimes (one prompt, three on-device
+ * runs → clean Thai / Thai with English glosses / pure English), and no prompt wording
+ * fixed it. Hindi and Spanish verified on-device 2026-07-16; ⚠️ fr/de/it/pt are not yet
+ * eval-verified — they need per-language on-device passes (and ideally eval sets in
+ * ml/test/) before being treated as shipped.
  * parseSteps is language-agnostic — it keys on the numbered-list markers, and the
  * prompt pins Arabic numerals ("1." not "१.") so the regex contract holds; the
- * numeral pin matters for Hindi (Devanagari digits) and Thai (Thai digits).
+ * numeral pin matters for Hindi (Devanagari digits).
  * ------------------------------------------------------------------ */
 const OUTPUT_LANGUAGE: Record<string, string> = {
   es: 'simple, natural Spanish',
@@ -65,7 +68,6 @@ const OUTPUT_LANGUAGE: Record<string, string> = {
   it: 'simple, natural Italian',
   pt: 'simple, natural Portuguese',
   hi: 'simple, natural Hindi (Devanagari script)',
-  th: 'simple, natural Thai (Thai script)',
 };
 
 /** The breakdown system prompt for the given app locale. */

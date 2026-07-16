@@ -13,16 +13,21 @@
  * keep reading `COPY.foo` statically; a locale change re-renders via App.tsx re-keying
  * the screen tree, so no subscription machinery is needed.
  *
- * WHICH languages: exactly the eight Llama 3.2 officially supports — the Overwhelm
+ * WHICH languages: Llama 3.2's officially supported set minus Thai — the Overwhelm
  * Manager generates steps in the app language, so offering a language the on-device
- * model can't write would break the core feature, not just the chrome.
+ * model can't write would break the core feature, not just the chrome. Thai is in
+ * Llama's list but the 1B QAT-LoRA build honours a Thai directive only sometimes:
+ * three on-device runs of one prompt gave clean Thai, Thai with English glosses per
+ * step, and pure English. Prompt wording doesn't move it — the variance is the model.
+ * Dropping an unknown locale is safe: isLocale() rejects a stale saved 'th' and
+ * loadLocale() falls back to 'en'.
  *
  * The locale itself is an app preference, not user data; it persists to a tiny local
  * JSON file (same pattern as persistence.ts flags). No network anywhere.
  */
 import * as FileSystem from 'expo-file-system';
 
-export type Locale = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'hi' | 'th';
+export type Locale = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'hi';
 
 /** Display metadata for the Settings language dropdown, in menu order. */
 export const LANGUAGES: readonly { code: Locale; nativeName: string; englishName: string }[] = [
@@ -33,7 +38,6 @@ export const LANGUAGES: readonly { code: Locale; nativeName: string; englishName
   { code: 'it', nativeName: 'Italiano', englishName: 'Italian' },
   { code: 'pt', nativeName: 'Português', englishName: 'Portuguese' },
   { code: 'hi', nativeName: 'हिन्दी', englishName: 'Hindi' },
-  { code: 'th', nativeName: 'ไทย', englishName: 'Thai' },
 ] as const;
 
 export const LOCALES: readonly Locale[] = LANGUAGES.map((l) => l.code);

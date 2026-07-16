@@ -179,28 +179,6 @@ const SETTINGS_COPY = localized(
         'LifePilot v0.1.0\nसारे AI फ़ीचर ExecuTorch के ज़रिए पूरी तरह आपके फ़ोन पर चलते हैं।\nन अकाउंट, न सर्वर, न कोई डेटा-संग्रह।',
       languageHint: 'AI के बनाए क़दम भी इसी भाषा में आएँगे।',
     },
-    th: {
-      title: 'การตั้งค่า',
-      sectionLanguage: 'ภาษา',
-      sectionNudges: 'การแจ้งเตือน',
-      sectionPerFeature: 'ตามฟีเจอร์',
-      sectionQuiet: 'ช่วงเวลาห้ามรบกวน',
-      sectionPrivacy: 'ความเป็นส่วนตัว',
-      sectionAbout: 'เกี่ยวกับแอป',
-      nudgesEnabled: 'เปิดการแจ้งเตือน',
-      nudgesEnabledSub: 'เตือนเบา ๆ เรื่องน้ำ พลังงาน และสมาธิ',
-      hydrationSub: 'เตือนให้ดื่มน้ำสม่ำเสมอ',
-      energySub: 'แจ้งช่วงสมาธิดีและช่วงพักผ่อน',
-      overwhelmSub: 'อ่านขั้นตอนถัดไปผ่านแว่นตา',
-      quietFrom: 'งดแจ้งเตือนตั้งแต่',
-      quietHint: 'ตัวแก้ไขช่วงห้ามรบกวนจะมาใน v1.1',
-      weatherLabel: 'สภาพอากาศสด (เลือกได้)',
-      weatherSub:
-        'ช่วยให้เป้าหมายการดื่มน้ำแม่นยำขึ้น ส่งเฉพาะตำแหน่งคร่าว ๆ เท่านั้น — ไม่มีข้อมูลส่วนตัว',
-      aboutText:
-        'LifePilot v0.1.0\nAI ทั้งหมดทำงานบนเครื่องของคุณผ่าน ExecuTorch\nไม่มีบัญชี ไม่มีเซิร์ฟเวอร์ ไม่เก็บข้อมูล',
-      languageHint: 'ขั้นตอนที่ AI สร้างจะใช้ภาษานี้ด้วย',
-    },
   },
 );
 

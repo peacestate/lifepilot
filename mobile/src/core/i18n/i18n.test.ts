@@ -37,14 +37,14 @@ describe('i18n', () => {
   it('resolves each locale to its own table', () => {
     const COPY = localized(
       { greet: 'Hello' },
-      { es: { greet: 'Hola' }, fr: { greet: 'Bonjour' }, th: { greet: 'สวัสดี' } },
+      { es: { greet: 'Hola' }, fr: { greet: 'Bonjour' }, pt: { greet: 'Olá' } },
     );
     setLocale('es');
     expect(COPY.greet).toBe('Hola');
     setLocale('fr');
     expect(COPY.greet).toBe('Bonjour');
-    setLocale('th');
-    expect(COPY.greet).toBe('สวัสดี');
+    setLocale('pt');
+    expect(COPY.greet).toBe('Olá');
   });
 
   it('falls back to English per-key when a translation is missing', () => {
